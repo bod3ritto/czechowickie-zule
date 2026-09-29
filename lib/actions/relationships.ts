@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { adminAction, revalidatePublic } from "./admin-action";
+import { adminAction, deleteByIds, revalidatePublic } from "./admin-action";
 import { fail, friendlyDbError, ok } from "./result";
 import { STATUS_MESSAGE } from "./status-messages";
 import { idsSchema } from "@/lib/validations/common";
@@ -89,8 +89,8 @@ export async function setRelationshipsType(input: { ids: string[]; type: string 
 }
 
 const deleteAction = adminAction(idsSchema, async ({ ids }, { db }) => {
-  const { error } = await db.from("relationships").delete().in("id", ids);
-  if (error) return fail(friendlyDbError(error, "Nie udało się usunąć."));
+  const failed = await deleteByIds(db, "relationships", ids);
+  if (failed) return failed;
   revalidatePublic();
   return ok(undefined, ids.length > 1 ? `Usunięto ${ids.length} relacje.` : "Usunięto relację.");
 });

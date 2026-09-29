@@ -94,6 +94,34 @@ describe("access control", () => {
   });
 });
 
+describe("deletes that remove nothing", () => {
+  it("report an error instead of success when the row does not exist", async () => {
+    const ghost = "00000000-0000-4000-8000-0000000000aa";
+    for (const r of [
+      await deletePeople({ ids: [ghost] }),
+      await deleteRelationships({ ids: [ghost] }),
+      await deleteLore({ ids: [ghost] }),
+      await deleteEvents({ ids: [ghost] }),
+      await deleteLocations({ ids: [ghost] }),
+    ]) {
+      expect(r).toMatchObject({ ok: false });
+    }
+  });
+
+  it("report an error when RLS blocks the delete (admin check passes, database says no)", async () => {
+    // Session is a valid admin for the action layer but not in admin_users for Postgres.
+    const id = await idOfSlug("kuba");
+    state.who = { role: "authenticated", id: "00000000-0000-4000-8000-000000000001", email: "admin@example.com" };
+    await db.exec("delete from public.admin_users");
+    try {
+      expect(await deletePeople({ ids: [id] })).toMatchObject({ ok: false });
+      expect(await count("people", "slug = 'kuba'")).toBe(1);
+    } finally {
+      await db.exec("insert into public.admin_users (user_id, email) values ('00000000-0000-4000-8000-000000000001', 'admin@example.com')");
+    }
+  });
+});
+
 describe("people", () => {
   it("creates, edits, changes status/category and duplicates a person", async () => {
     const created = await savePerson(personInput());

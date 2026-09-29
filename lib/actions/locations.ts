@@ -1,7 +1,7 @@
 "use server";
 
 import type { z } from "zod";
-import { adminAction, revalidatePublic } from "./admin-action";
+import { adminAction, deleteByIds, revalidatePublic } from "./admin-action";
 import { fail, friendlyDbError, ok } from "./result";
 import { idsSchema } from "@/lib/validations/common";
 import { locationSchema, type LocationInput } from "@/lib/validations/entities";
@@ -25,8 +25,8 @@ export async function saveLocation(input: LocationInput) {
 }
 
 const deleteAction = adminAction(idsSchema, async ({ ids }, { db }) => {
-  const { error } = await db.from("locations").delete().in("id", ids);
-  if (error) return fail(friendlyDbError(error, "Nie udało się usunąć."));
+  const failed = await deleteByIds(db, "locations", ids);
+  if (failed) return failed;
   revalidatePublic();
   return ok(undefined, "Usunięto lokalizację.");
 });

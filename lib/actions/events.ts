@@ -1,7 +1,7 @@
 "use server";
 
 import type { z } from "zod";
-import { adminAction, revalidatePublic, type AdminDb } from "./admin-action";
+import { adminAction, deleteByIds, revalidatePublic, type AdminDb } from "./admin-action";
 import { fail, friendlyDbError, ok } from "./result";
 import { STATUS_MESSAGE } from "./status-messages";
 import { idsSchema, yearFrom } from "@/lib/validations/common";
@@ -91,8 +91,8 @@ export async function setEventsStatus(input: z.input<typeof statusChangeSchema>)
 }
 
 const deleteAction = adminAction(idsSchema, async ({ ids }, { db }) => {
-  const { error } = await db.from("events").delete().in("id", ids);
-  if (error) return fail(friendlyDbError(error, "Nie udało się usunąć."));
+  const failed = await deleteByIds(db, "events", ids);
+  if (failed) return failed;
   revalidatePublic();
   return ok(undefined, ids.length > 1 ? `Usunięto ${ids.length} wydarzenia.` : "Usunięto wydarzenie.");
 });

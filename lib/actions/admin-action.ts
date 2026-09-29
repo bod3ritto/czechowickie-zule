@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 import { getAdmin, type AdminSession } from "@/lib/auth/admin";
 import { createSessionClient } from "@/lib/supabase/server";
-import { fail, zodFieldErrors, type ActionResult } from "./result";
+import { fail, friendlyDbError, zodFieldErrors, type ActionResult } from "./result";
 
 export type AdminDb = Awaited<ReturnType<typeof createSessionClient>>;
 
@@ -51,4 +51,18 @@ export function adminAction<S extends z.ZodType, T>(
 /** Public pages are static; refresh them after content changes. */
 export function revalidatePublic() {
   revalidatePath("/", "layout");
+}
+
+type DeletableTable = "people" | "relationships" | "events" | "lore" | "locations";
+
+/**
+ * Deletes rows by id and reports failure when nothing was removed. PostgREST
+ * returns no error when RLS filters every row out, so without `.select()` a
+ * blocked delete would look like a success.
+ */
+export async function deleteByIds(db: AdminDb, table: DeletableTable, ids: string[]) {
+  const { data, error } = await db.from(table).delete().in("id", ids).select("id");
+  if (error) return fail(friendlyDbError(error, "Nie udało się usunąć."));
+  if (!data?.length) return fail("Nic nie zostało usunięte. Brak uprawnień albo wpis już nie istnieje — odśwież stronę.");
+  return null;
 }
