@@ -1,0 +1,341 @@
+import "server-only";
+import { cache } from "react";
+import { notFound } from "next/navigation";
+import { mediaPublicUrl } from "@/lib/env";
+import { createSessionClient } from "@/lib/supabase/server";
+import type {
+  AuditLogRow,
+  EventRow,
+  LocationRow,
+  LoreRow,
+  MediaRow,
+  PersonRow,
+  RelationshipRow,
+} from "@/lib/db/database.types";
+import type { Network, NetworkPerson, NetworkRelationship } from "@/lib/admin/network";
+
+/**
+ * Read-side for the admin panel. Always runs with the admin's session, so
+ * RLS applies. Callers must have passed `requireAdmin()` (the admin layout
+ * does that for every page).
+ */
+
+function must<T>(result: { data: T | null; error: { message: string } | null }, what: string): T {
+  if (result.error) {
+    console.error(`[admin query] ${what}:`, result.error.message);
+    throw new Error(`Nie udało się wczytać: ${what}.`);
+  }
+  return result.data as T;
+}
+
+export type MediaItem = MediaRow & { url: string };
+
+const withUrl = (m: MediaRow): MediaItem => ({ ...m, url: mediaPublicUrl(m.storage_path) });
+
+// ---------------------------------------------------------------- network ----
+export const getNetwork = cache(async (): Promise<Network> => {
+  const db = await createSessionClient();
+  const [people, rels, avatars] = await Promise.all([
+    db.from("people").select("id, slug, first_name, last_name, nickname, aliases, category, status, bio").order("first_name"),
+    db.from("relationships").select("id, slug, person_a, person_b, type, strength, since_year, since_date, status"),
+    db.from("media").select("person_id, storage_path, is_primary, created_at").eq("kind", "avatar").not("person_id", "is", null),
+  ]);
+  const avatarByPerson = new Map<string, { path: string; primary: boolean }>();
+  for (const m of must(avatars, "zdjęcia")) {
+    if (!m.person_id) continue;
+    const current = avatarByPerson.get(m.person_id);
+    if (!current || (m.is_primary && !current.primary)) avatarByPerson.set(m.person_id, { path: m.storage_path, primary: m.is_primary });
+  }
+  const outPeople: NetworkPerson[] = must(people, "osoby").map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    name: p.first_name,
+    lastName: p.last_name,
+    nickname: p.nickname,
+    aliases: p.aliases,
+    category: p.category,
+    status: p.status,
+    bio: p.bio,
+    avatarUrl: avatarByPerson.has(p.id) ? mediaPublicUrl(avatarByPerson.get(p.id)!.path) : null,
+  }));
+  const outRels: NetworkRelationship[] = must(rels, "relacje").map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    personA: r.person_a,
+    personB: r.person_b,
+    type: r.type,
+    strength: r.strength,
+    since: r.since_year ?? (r.since_date ? Number(r.since_date.slice(0, 4)) : null),
+    status: r.status,
+  }));
+  return { people: outPeople, relationships: outRels };
+});
+
+// -------------------------------------------------------------- dashboard ----
+export async function getDashboard() {
+  const db = await createSessionClient();
+  const count = (table: "people" | "relationships" | "events" | "lore") =>
+    db.from(table).select("id", { count: "exact", head: true }).neq("status", "archived");
+  const [people, relationships, events, lore, recentPeople, recentRels, recentEvents, audit] = await Promise.all([
+    count("people"),
+    count("relationships"),
+    count("events"),
+    count("lore"),
+    db.from("people").select("id, first_name, nickname, status, created_at").order("created_at", { ascending: false }).limit(5),
+    db.from("relationships").select("id, person_a, person_b, type, status, created_at").order("created_at", { ascending: false }).limit(5),
+    db.from("events").select("id, title, year, status, created_at").order("created_at", { ascending: false }).limit(5),
+    db.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(8),
+  ]);
+  return {
+    counts: {
+      people: people.count ?? 0,
+      relationships: relationships.count ?? 0,
+      events: events.count ?? 0,
+      lore: lore.count ?? 0,
+    },
+    recentPeople: must(recentPeople, "osoby"),
+    recentRelationships: must(recentRels, "relacje"),
+    recentEvents: must(recentEvents, "wydarzenia"),
+    audit: must(audit, "historia zmian") as AuditLogRow[],
+  };
+}
+
+// ----------------------------------------------------------------- people ----
+export interface PersonListItem extends PersonRow {
+  relationshipCount: number;
+  eventCount: number;
+  avatarUrl: string | null;
+}
+
+export async function listPeople(): Promise<PersonListItem[]> {
+  const db = await createSessionClient();
+  const [people, network, eventLinks] = await Promise.all([
+    db.from("people").select("*").order("created_at", { ascending: false }),
+    getNetwork(),
+    db.from("event_people").select("person_id"),
+  ]);
+  const events = new Map<string, number>();
+  for (const l of must(eventLinks, "uczestnicy")) events.set(l.person_id, (events.get(l.person_id) ?? 0) + 1);
+  const degree = new Map<string, number>();
+  for (const r of network.relationships) {
+    degree.set(r.personA, (degree.get(r.personA) ?? 0) + 1);
+    degree.set(r.personB, (degree.get(r.personB) ?? 0) + 1);
+  }
+  const avatars = new Map(network.people.map((p) => [p.id, p.avatarUrl]));
+  return must(people, "osoby").map((p) => ({
+    ...p,
+    relationshipCount: degree.get(p.id) ?? 0,
+    eventCount: events.get(p.id) ?? 0,
+    avatarUrl: avatars.get(p.id) ?? null,
+  }));
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Route params go into PostgREST filters: only accept real UUIDs. */
+function assertUuid(id: string) {
+  if (!UUID_RE.test(id)) notFound();
+}
+
+export async function getPersonDetail(id: string) {
+  assertUuid(id);
+  const db = await createSessionClient();
+  const person = must(await db.from("people").select("*").eq("id", id).maybeSingle(), "osoba");
+  if (!person) notFound();
+
+  const [rels, eventLinks, loreLinks, media] = await Promise.all([
+    db.from("relationships").select("*").or(`person_a.eq.${id},person_b.eq.${id}`),
+    db.from("event_people").select("event_id").eq("person_id", id),
+    db.from("lore_people").select("lore_id").eq("person_id", id),
+    db.from("media").select("*").eq("person_id", id).order("created_at", { ascending: false }),
+  ]);
+  const eventIds = must(eventLinks, "wydarzenia").map((e) => e.event_id);
+  const loreIds = must(loreLinks, "lore").map((l) => l.lore_id);
+  const [events, lore] = await Promise.all([
+    eventIds.length ? db.from("events").select("*").in("id", eventIds) : Promise.resolve({ data: [] as EventRow[], error: null }),
+    loreIds.length ? db.from("lore").select("*").in("id", loreIds) : Promise.resolve({ data: [] as LoreRow[], error: null }),
+  ]);
+  return {
+    person: person as PersonRow,
+    relationships: must(rels, "relacje") as RelationshipRow[],
+    events: must(events, "wydarzenia") as EventRow[],
+    lore: must(lore, "lore") as LoreRow[],
+    media: (must(media, "zdjęcia") as MediaRow[]).map(withUrl),
+  };
+}
+
+// ---------------------------------------------------------- relationships ----
+export async function listRelationships(): Promise<RelationshipRow[]> {
+  const db = await createSessionClient();
+  return must(await db.from("relationships").select("*").order("created_at", { ascending: false }), "relacje");
+}
+
+export async function getRelationshipDetail(id: string) {
+  assertUuid(id);
+  const db = await createSessionClient();
+  const rel = must(await db.from("relationships").select("*").eq("id", id).maybeSingle(), "relacja");
+  if (!rel) notFound();
+  const links = must(await db.from("event_relationships").select("event_id").eq("relationship_id", id), "wydarzenia");
+  const events = links.length
+    ? must(await db.from("events").select("*").in("id", links.map((l) => l.event_id)), "wydarzenia")
+    : [];
+  return { relationship: rel as RelationshipRow, events: events as EventRow[] };
+}
+
+// ----------------------------------------------------------------- events ----
+export interface EventListItem extends EventRow {
+  people: string[];
+  relationships: string[];
+}
+
+export async function listEvents(): Promise<EventListItem[]> {
+  const db = await createSessionClient();
+  const [events, ep, er] = await Promise.all([
+    db.from("events").select("*").order("created_at", { ascending: false }),
+    db.from("event_people").select("*"),
+    db.from("event_relationships").select("*"),
+  ]);
+  const peopleBy = new Map<string, string[]>();
+  for (const row of must(ep, "uczestnicy")) peopleBy.set(row.event_id, [...(peopleBy.get(row.event_id) ?? []), row.person_id]);
+  const relsBy = new Map<string, string[]>();
+  for (const row of must(er, "relacje wydarzeń")) relsBy.set(row.event_id, [...(relsBy.get(row.event_id) ?? []), row.relationship_id]);
+  return must(events, "wydarzenia").map((e) => ({ ...e, people: peopleBy.get(e.id) ?? [], relationships: relsBy.get(e.id) ?? [] }));
+}
+
+export async function getEventDetail(id: string) {
+  assertUuid(id);
+  const db = await createSessionClient();
+  const event = must(await db.from("events").select("*").eq("id", id).maybeSingle(), "wydarzenie");
+  if (!event) notFound();
+  const [ep, er, media] = await Promise.all([
+    db.from("event_people").select("person_id").eq("event_id", id),
+    db.from("event_relationships").select("relationship_id").eq("event_id", id),
+    db.from("media").select("*").eq("event_id", id).order("created_at", { ascending: false }),
+  ]);
+  return {
+    event: { ...(event as EventRow), people: must(ep, "uczestnicy").map((r) => r.person_id), relationships: must(er, "relacje").map((r) => r.relationship_id) },
+    media: (must(media, "zdjęcia") as MediaRow[]).map(withUrl),
+  };
+}
+
+// ------------------------------------------------------------------- lore ----
+export interface LoreListItem extends LoreRow {
+  people: string[];
+}
+
+export async function listLore(): Promise<LoreListItem[]> {
+  const db = await createSessionClient();
+  const [lore, lp] = await Promise.all([
+    db.from("lore").select("*").order("created_at", { ascending: false }),
+    db.from("lore_people").select("*"),
+  ]);
+  const peopleBy = new Map<string, string[]>();
+  for (const row of must(lp, "osoby lore")) peopleBy.set(row.lore_id, [...(peopleBy.get(row.lore_id) ?? []), row.person_id]);
+  return must(lore, "lore").map((l) => ({ ...l, people: peopleBy.get(l.id) ?? [] }));
+}
+
+export async function getLoreDetail(id: string) {
+  assertUuid(id);
+  const db = await createSessionClient();
+  const lore = must(await db.from("lore").select("*").eq("id", id).maybeSingle(), "lore");
+  if (!lore) notFound();
+  const [lp, media] = await Promise.all([
+    db.from("lore_people").select("person_id").eq("lore_id", id),
+    db.from("media").select("*").eq("lore_id", id).order("created_at", { ascending: false }),
+  ]);
+  return {
+    lore: { ...(lore as LoreRow), people: must(lp, "osoby").map((r) => r.person_id) },
+    media: (must(media, "zdjęcia") as MediaRow[]).map(withUrl),
+  };
+}
+
+// -------------------------------------------------------------- locations ----
+export const listLocations = cache(async (): Promise<LocationRow[]> => {
+  const db = await createSessionClient();
+  return must(await db.from("locations").select("*").order("name"), "lokalizacje");
+});
+
+// ------------------------------------------------------------------ audit ----
+export async function listAudit(limit = 200): Promise<AuditLogRow[]> {
+  const db = await createSessionClient();
+  return must(await db.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(limit), "historia zmian");
+}
+
+// ------------------------------------------------------------ search index ----
+export interface SearchItem {
+  kind: "person" | "relationship" | "event" | "lore";
+  id: string;
+  title: string;
+  subtitle?: string;
+  keywords: string;
+  href: string;
+}
+
+export const getSearchIndex = cache(async (): Promise<SearchItem[]> => {
+  const db = await createSessionClient();
+  const [network, events, lore] = await Promise.all([
+    getNetwork(),
+    db.from("events").select("id, title, year, description"),
+    db.from("lore").select("id, title, content"),
+  ]);
+  const names = new Map(network.people.map((p) => [p.id, p]));
+  const label = (id: string) => {
+    const p = names.get(id);
+    return p ? (p.nickname && p.nickname !== p.name ? `${p.name} „${p.nickname}”` : p.name) : "?";
+  };
+  const items: SearchItem[] = [
+    ...network.people.map((p) => ({
+      kind: "person" as const,
+      id: p.id,
+      title: label(p.id),
+      subtitle: p.slug,
+      keywords: [p.name, p.lastName, p.nickname, p.slug, ...p.aliases, p.bio].filter(Boolean).join(" "),
+      href: `/admin/people/${p.id}`,
+    })),
+    ...network.relationships.map((r) => ({
+      kind: "relationship" as const,
+      id: r.id,
+      title: `${label(r.personA)} ↔ ${label(r.personB)}`,
+      subtitle: r.type,
+      keywords: `${label(r.personA)} ${label(r.personB)} ${r.type} ${r.slug}`,
+      href: `/admin/relationships/${r.id}`,
+    })),
+    ...must(events, "wydarzenia").map((e) => ({
+      kind: "event" as const,
+      id: e.id,
+      title: e.title,
+      subtitle: e.year ? String(e.year) : undefined,
+      keywords: `${e.title} ${e.year ?? ""} ${e.description ?? ""}`,
+      href: `/admin/events/${e.id}`,
+    })),
+    ...must(lore, "lore").map((l) => ({
+      kind: "lore" as const,
+      id: l.id,
+      title: l.title || l.content.slice(0, 60),
+      keywords: `${l.title ?? ""} ${l.content}`,
+      href: `/admin/lore/${l.id}`,
+    })),
+  ];
+  return items;
+});
+
+// ------------------------------------------------------------------ export ----
+export async function exportAll() {
+  const db = await createSessionClient();
+  const tables = [
+    "locations",
+    "people",
+    "relationships",
+    "events",
+    "event_people",
+    "event_relationships",
+    "lore",
+    "lore_people",
+    "media",
+  ] as const;
+  const results = await Promise.all(tables.map((t) => db.from(t).select("*")));
+  const out: Record<string, unknown> = { version: 1, exported_at: new Date().toISOString() };
+  tables.forEach((t, i) => {
+    out[t] = must(results[i] as { data: unknown[] | null; error: { message: string } | null }, t);
+  });
+  return out;
+}

@@ -1,0 +1,235 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ---------------------------------------------------------------------------
+   Design tokens. Dark is the default (and only) theme.
+--------------------------------------------------------------------------- */
+@theme {
+  --color-bg: #08080a;
+  --color-surface: #101013;
+  --color-fg: #ededf0;
+  --color-fg-muted: #a1a1aa;
+  --color-fg-subtle: #71717a;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.16);
+  --color-brand: #f5b83d;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --animate-fade-in: fade-in 240ms ease-out both;
+  --animate-pop: pop 180ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  --animate-panel-in: panel-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-sheet-in: sheet-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: scale(0.97) translateY(-2px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes panel-in {
+    from { opacity: 0; transform: translateX(16px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: none; }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   shadcn/ui tokens (admin panel). Dark only, tuned to the public palette.
+--------------------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #08080a;
+  --foreground: #ededf0;
+  --card: #0e0e11;
+  --card-foreground: #ededf0;
+  --popover: #111114;
+  --popover-foreground: #ededf0;
+  --primary: #ededf0;
+  --primary-foreground: #0a0a0c;
+  --secondary: #1a1a1e;
+  --secondary-foreground: #ededf0;
+  --muted: #16161a;
+  --muted-foreground: #a1a1aa;
+  --accent: #1d1d22;
+  --accent-foreground: #ededf0;
+  --destructive: #f05252;
+  --border: rgb(255 255 255 / 0.08);
+  --input: rgb(255 255 255 / 0.11);
+  --ring: #6b6b75;
+  --sidebar: #0b0b0d;
+  --sidebar-foreground: #d4d4d8;
+  --sidebar-primary: #ededf0;
+  --sidebar-primary-foreground: #0a0a0c;
+  --sidebar-accent: #18181c;
+  --sidebar-accent-foreground: #ededf0;
+  --sidebar-border: rgb(255 255 255 / 0.07);
+  --sidebar-ring: #6b6b75;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+}
+
+html {
+  color-scheme: dark;
+  background: var(--color-bg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+}
+
+::selection {
+  background: rgb(245 184 61 / 0.3);
+}
+
+/* Subtle film grain over everything. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Faint dot grid + vignette behind the graph. */
+.map-backdrop {
+  background:
+    radial-gradient(ellipse at 50% 40%, rgb(245 184 61 / 0.035), transparent 60%),
+    radial-gradient(circle, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  background-size: 100% 100%, 28px 28px;
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 85%);
+}
+
+/* force-graph tooltip */
+.float-tooltip-kap {
+  position: absolute;
+  pointer-events: none;
+  z-index: 50;
+  padding: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  font-family: var(--font-sans);
+}
+.graph-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-line-strong);
+  background: rgb(16 16 19 / 0.95);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.5);
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+}
+.graph-tip strong {
+  color: var(--color-fg);
+  font-weight: 600;
+}
+.graph-tip span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* Timeline slider */
+.timeline-range {
+  appearance: none;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+.timeline-range::-webkit-slider-runnable-track {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-line-strong);
+}
+.timeline-range::-moz-range-track {
+  height: 2px;
+  background: var(--color-line-strong);
+}
+.timeline-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border-radius: 999px;
+  background: var(--color-brand);
+  box-shadow: 0 0 0 4px rgb(245 184 61 / 0.15);
+}
+.timeline-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-brand);
+}
+.timeline-range:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.link {
+  text-decoration: underline;
+  text-decoration-color: var(--color-line-strong);
+  text-underline-offset: 3px;
+}
+.link:hover {
+  text-decoration-color: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
