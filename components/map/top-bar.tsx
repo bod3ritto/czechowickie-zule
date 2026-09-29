@@ -9,6 +9,7 @@ import {
   Info,
   ListFilter,
   Menu,
+  Plus,
   Route,
   Search,
   Users,
@@ -61,6 +62,20 @@ export function TopBar() {
             <Kbd>K</Kbd>
           </span>
         </button>
+
+        {map.canSubmit && (
+          <Button
+            size="md"
+            variant="solid"
+            onClick={() => map.openSubmit("person")}
+            aria-label="Dodaj osobę lub relację"
+            title="Zaproponuj osobę lub relację — pojawi się po zatwierdzeniu"
+            className="px-0 w-9 md:w-auto md:px-3"
+          >
+            <Plus className="size-4" />
+            <span className="hidden md:inline">Dodaj</span>
+          </Button>
+        )}
 
         <Button size="md" onClick={map.randomPerson} aria-label="Losuj osobę" className="px-0 w-9 lg:w-auto lg:px-3">
           <Dices className="size-4" />

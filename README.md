@@ -44,12 +44,15 @@ To wszystko. **Aplikacja nie używa klucza `service_role`** — każde zapytanie
 
 ## 4. Migracje
 
-Dwa pliki w `supabase/migrations/`:
+Pliki w `supabase/migrations/` (uruchamiaj w kolejności nazw):
 
 - `…_schema.sql` — tabele, indeksy, RLS, triggery (audit log, `updated_at`, `published_at`), funkcje `public_dataset()` i `admin_import()`,
-- `…_storage.sql` — bucket `media` i polityki Storage.
+- `…_storage.sql` — bucket `media` i polityki Storage,
+- `…_submissions.sql` — zgłoszenia od odwiedzających: kolumny `submitted_at` / `submitted_by` oraz funkcje `submit_person()` i `submit_relationship()`.
+- `…_person_categories.sql` — 10 dodatkowych kategorii osób (Świeżak, Osiedlowy, Imprezowicz, Kibic, Sportowiec, Działkowicz, Złota rączka, Biznesmen, Emigrant, Tajemniczy).
+- `…_triumwirat.sql` — typ relacji „Triumwirat” (dwie osoby z legendarnej trójki; trójka = trzy takie relacje).
 
-**Opcja A — SQL Editor:** wklej i uruchom oba pliki po kolei.
+**Opcja A — SQL Editor:** wklej i uruchom pliki po kolei.
 **Opcja B — Supabase CLI:**
 
 ```bash
@@ -146,7 +149,8 @@ Trzy niezależne warstwy:
 3. **Postgres (RLS + granty)**:
    - `anon`: `SELECT` wyłącznie na opublikowanych wierszach i **tylko na publicznych kolumnach** (granty kolumnowe — `source_note`, `admin_notes`, `last_name`, `birth_date`, adresy są niedostępne nawet przy bezpośrednim zapytaniu do API),
    - `authenticated`: pełny CRUD, ale każda polityka wymaga `is_admin()` — samo założenie konta nic nie daje,
-   - `audit_logs`: pisane wyłącznie przez triggery `SECURITY DEFINER`, nie da się ich podrobić z API.
+   - `audit_logs`: pisane wyłącznie przez triggery `SECURITY DEFINER`, nie da się ich podrobić z API,
+   - zgłoszenia: `anon` nadal nie ma prawa zapisu do żadnej tabeli. Może tylko wywołać `submit_person()` / `submit_relationship()` (`SECURITY DEFINER`), które przyjmują kilka pól, sprawdzają długości, **zawsze** zapisują wersję roboczą i ograniczają liczbę zgłoszeń (30 na godzinę łącznie, 200 czekających).
 
 Publiczna strona pobiera dane jedną funkcją `public_dataset()` (`SECURITY INVOKER` → podlega RLS i grantom), która zwraca dokładnie pola potrzebne mapie. Podgląd szkiców (`/admin/preview`) działa tylko przy jednoczesnym ciasteczku draft mode **i** zweryfikowanej sesji admina.
 
@@ -161,12 +165,19 @@ Publiczna strona pobiera dane jedną funkcją `public_dataset()` (`SECURITY INVO
 | `/admin/events`, `/new`, `/[id]` | wydarzenia z uczestnikami, relacjami („Jak się poznali?”), lokalizacją, zdjęciami |
 | `/admin/lore`, `/new`, `/[id]` | lore z typem, pewnością, źródłem i publikacją |
 | `/admin/locations` | miejsca z współrzędnymi (pod przyszłą mapę) |
+| `/admin/submissions` | zgłoszenia od odwiedzających (licznik w menu i baner na dashboardzie): Zatwierdź = publikacja, Odrzuć = usunięcie, Edytuj = zwykły edytor przed zatwierdzeniem |
 | `/admin/audit` | historia zmian |
 | `/admin/settings` | eksport JSON, import JSON z podglądem i ostrzeżeniami (scal / zastąp) |
 
 UX: **Ctrl/⌘+K** — wyszukiwarka wszystkiego · **N / R / E** — nowa osoba / relacja / wydarzenie (nie działają podczas pisania) · **+** w nagłówku — szybkie dodawanie z każdego miejsca · ostrzeżenie „Masz niezapisane zmiany” · toasty · potwierdzenia usuwania z ostrzeżeniem o liczbie relacji (duże usunięcia wymagają wpisania tekstu) · „Możliwe podobne osoby” przy dodawaniu · optymistyczne zmiany statusu i dat · „Zapisz” i „Zapisz i opublikuj” · widok kart i szuflada menu na telefonie.
 
 Zdjęcia: przeciągnij i upuść → podgląd → upload z postępem bezpośrednio do Supabase Storage (przez jednorazowy podpisany URL wystawiony przez serwer), usuwanie, ustawianie głównego zdjęcia (= publiczny avatar).
+
+## Zgłoszenia od odwiedzających
+
+Każdy może bez konta zaproponować osobę albo relację: przycisk **„Dodaj”** na mapie (lub **„Zgłoś znajomość”** w panelu osoby). Nowa osoba może od razu dostać relację z kimś z mapy. Zgłoszenie trafia do bazy jako **wersja robocza** z datą `submitted_at` (i opcjonalnym podpisem), więc publicznie nic się nie zmienia, dopóki administrator go nie zatwierdzi w `/admin/submissions`. Zatwierdzenie osoby publikuje ją razem z relacjami zgłoszonymi w tym samym formularzu.
+
+Formularz ma ukryte pole-pułapkę na boty. Limity w bazie chronią przed zalaniem kolejki; przy spamie od jednej osoby blokują na godzinę wszystkich, co przy małej społeczności jest akceptowalne.
 
 ## Architektura
 

@@ -1,5 +1,5 @@
 import { normalizeText } from "@/lib/format";
-import type { RelationshipType } from "@/types/domain";
+import type { PersonCategory, RelationshipType } from "@/types/domain";
 import type { Status } from "@/lib/db/enums";
 
 /**
@@ -13,7 +13,7 @@ export interface NetworkPerson {
   lastName: string | null;
   nickname: string | null;
   aliases: string[];
-  category: "stala-ekipa" | "bywalec" | "legenda" | "z-daleka";
+  category: PersonCategory;
   status: Status;
   avatarUrl: string | null;
   bio: string;

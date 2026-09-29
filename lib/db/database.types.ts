@@ -35,6 +35,8 @@ type Table<Row, Required extends keyof Row> = {
 
 type Timestamps = { created_at: string; updated_at: string };
 type Publishable = { status: Status; published_at: string | null; archived_at: string | null };
+/** Set when the row came from the public submission form (see *_submissions.sql). */
+type Submittable = { submitted_at: string | null; submitted_by: string | null };
 
 export type LocationRow = {
   id: string;
@@ -61,6 +63,7 @@ export type PersonRow = {
   location_id: string | null;
   admin_notes: string | null;
 } & Publishable &
+  Submittable &
   Timestamps;
 
 export type RelationshipRow = {
@@ -81,6 +84,7 @@ export type RelationshipRow = {
   source_note: string | null;
   location_id: string | null;
 } & Publishable &
+  Submittable &
   Timestamps;
 
 export type EventRow = {
@@ -164,6 +168,30 @@ export interface Database {
       is_admin: { Args: Record<string, never>; Returns: boolean };
       public_dataset: { Args: { include_drafts?: boolean }; Returns: Json };
       admin_import: { Args: { payload: Json; mode?: string }; Returns: Json };
+      submit_person: {
+        Args: {
+          first_name: string;
+          nickname?: string | null;
+          bio?: string | null;
+          category?: PersonCategory;
+          related_to?: string | null;
+          related_type?: RelationshipType | null;
+          related_description?: string | null;
+          submitted_by?: string | null;
+        };
+        Returns: Json;
+      };
+      submit_relationship: {
+        Args: {
+          person_a: string;
+          person_b: string;
+          type: RelationshipType;
+          description?: string | null;
+          since_year?: number | null;
+          submitted_by?: string | null;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       content_status: Status;

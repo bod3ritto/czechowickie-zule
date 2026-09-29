@@ -17,7 +17,21 @@ export interface Place {
 }
 
 /** Visual grouping of people on the map. Purely descriptive, never a score. */
-export type PersonCategory = "stala-ekipa" | "bywalec" | "legenda" | "z-daleka";
+export type PersonCategory =
+  | "stala-ekipa"
+  | "bywalec"
+  | "legenda"
+  | "z-daleka"
+  | "swiezak"
+  | "osiedlowy"
+  | "imprezowicz"
+  | "kibic"
+  | "sportowiec"
+  | "dzialkowicz"
+  | "zlota-raczka"
+  | "biznesmen"
+  | "emigrant"
+  | "tajemniczy";
 
 /** Publication status. The public site only ever shows `published`. */
 export type ContentStatus = "draft" | "published" | "archived";
@@ -63,6 +77,7 @@ export type RelationshipType =
   | "z-widzenia"
   | "podobno"
   | "duet"
+  | "triumwirat"
   | "inne";
 
 export type RelationshipTone = "pozytywna" | "neutralna" | "zabawna" | "skomplikowana";

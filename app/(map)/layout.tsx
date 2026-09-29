@@ -1,4 +1,5 @@
 import { getDataset, isPreview } from "@/lib/data";
+import { isSupabaseConfigured } from "@/lib/env";
 import { MapShell } from "@/components/map/map-shell";
 import { PreviewBar } from "@/components/map/preview-bar";
 
@@ -11,7 +12,7 @@ export default async function MapLayout({ children }: LayoutProps<"/">) {
   const [dataset, preview] = await Promise.all([getDataset(), isPreview()]);
   return (
     <>
-      <MapShell dataset={dataset}>{children}</MapShell>
+      <MapShell dataset={dataset} canSubmit={isSupabaseConfigured()}>{children}</MapShell>
       {preview && <PreviewBar />}
     </>
   );
