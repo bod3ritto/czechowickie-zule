@@ -50,8 +50,8 @@ export function PeopleTable({ people }: { people: PersonListItem[] }) {
           : undefined,
       confirmLabel: "Usuń trwale",
       destructive: true,
-      // Big deletions need an explicit, typed confirmation.
-      requireText: targets.length > 1 ? "USUŃ" : relations >= 5 ? single?.slug : undefined,
+      // Deleting several people at once needs an explicit, typed confirmation.
+      requireText: targets.length > 1 ? "USUŃ" : undefined,
     });
     if (!ok) return false;
     const result = await run(() => deletePeople({ ids: targets.map((t) => t.id) }));

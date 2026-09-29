@@ -10,6 +10,7 @@ import { PERSON_CATEGORIES, RELATIONSHIP_TYPES, isMystery } from "@/lib/relation
 import { escapeHtml, initials } from "@/lib/format";
 import {
   configureFonts,
+  setAvatarLoadHandler,
   drawLink,
   drawNode,
   paintLinkHitArea,
@@ -91,6 +92,7 @@ export default function GraphCanvas({
         color: PERSON_CATEGORIES[person.category].color,
         radius: 5 + Math.sqrt(degree) * 2.6,
         draft: person.status === "draft",
+        avatarUrl: person.avatarUrl,
       });
     }
     const allLinks = new Map<string, GLink>();
@@ -399,6 +401,15 @@ export default function GraphCanvas({
     }, 50);
     return () => clearTimeout(t);
   }, [mounted]);
+
+  // Photos load asynchronously; repaint as soon as one arrives.
+  useEffect(() => {
+    setAvatarLoadHandler(() => {
+      const fg = fgRef.current;
+      if (fg) fg.zoom(fg.zoom());
+    });
+    return () => setAvatarLoadHandler(null);
+  }, []);
 
   useEffect(() => {
     const styles = getComputedStyle(document.documentElement);

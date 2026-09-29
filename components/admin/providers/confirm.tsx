@@ -73,7 +73,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               <span className="text-muted-foreground">
                 Wpisz <strong className="font-mono text-foreground">{options.requireText}</strong>, aby potwierdzić.
               </span>
-              <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
+              <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={options.requireText} autoFocus />
             </label>
           )}
           <AlertDialogFooter>

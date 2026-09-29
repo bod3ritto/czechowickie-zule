@@ -10,6 +10,8 @@ export interface GraphNodeData {
   radius: number;
   /** Unpublished (admin/preview only): drawn with a dashed ring. */
   draft?: boolean;
+  /** Profile photo; drawn inside the node once loaded and large enough on screen. */
+  avatarUrl?: string;
 }
 
 export interface GraphLinkData {
@@ -35,6 +37,31 @@ export function configureFonts(sans: string, mono: string) {
   if (sans) SANS = `${sans}, system-ui, sans-serif`;
   if (mono) MONO = `${mono}, ui-monospace, monospace`;
 }
+
+// --- Avatars: loaded lazily, cached for the session, drawn cover-cropped in a circle.
+const avatarCache = new Map<string, HTMLImageElement | "error">();
+let onAvatarLoaded: (() => void) | null = null;
+
+/** The canvas registers a redraw callback so photos appear as soon as they load. */
+export function setAvatarLoadHandler(handler: (() => void) | null) {
+  onAvatarLoaded = handler;
+}
+
+function getAvatar(url: string): HTMLImageElement | null {
+  const hit = avatarCache.get(url);
+  if (hit === "error") return null;
+  if (hit) return hit.complete && hit.naturalWidth > 0 ? hit : null;
+  const img = new Image();
+  img.decoding = "async";
+  img.onload = () => onAvatarLoaded?.();
+  img.onerror = () => avatarCache.set(url, "error");
+  img.src = url;
+  avatarCache.set(url, img);
+  return null;
+}
+
+/** Below this on-screen radius (px) a photo is unreadable, so we skip loading it. */
+const MIN_AVATAR_SCREEN_RADIUS = 6;
 
 export interface NodeDrawState {
   alpha: number;
@@ -65,6 +92,27 @@ export function drawNode(node: GNode, ctx: CanvasRenderingContext2D, scale: numb
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fillStyle = NODE_FILL;
   ctx.fill();
+
+  const photo = node.avatarUrl && r * scale >= MIN_AVATAR_SCREEN_RADIUS ? getAvatar(node.avatarUrl) : null;
+  if (photo) {
+    const side = Math.min(photo.naturalWidth, photo.naturalHeight);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r - 0.5 / scale, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(
+      photo,
+      (photo.naturalWidth - side) / 2,
+      (photo.naturalHeight - side) / 2,
+      side,
+      side,
+      x - r,
+      y - r,
+      r * 2,
+      r * 2,
+    );
+    ctx.restore();
+  }
   ctx.lineWidth = s.active ? Math.max(1.6, 2.4 / scale) : Math.max(0.8, 1.2 / scale);
   ctx.strokeStyle = node.color;
   if (node.draft) ctx.setLineDash([2.5, 2]);
@@ -82,7 +130,7 @@ export function drawNode(node: GNode, ctx: CanvasRenderingContext2D, scale: numb
   }
 
   // Level of detail: initials only when the node is big enough on screen.
-  if (r * scale > 9) {
+  if (!photo && r * scale > 9) {
     ctx.fillStyle = node.color;
     ctx.font = `600 ${r * 0.72}px ${SANS}`;
     ctx.textAlign = "center";

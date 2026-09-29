@@ -70,7 +70,6 @@ export function PersonEditor({
           : undefined,
       confirmLabel: "Usuń trwale",
       destructive: true,
-      requireText: relationships.length >= 5 ? person.slug : undefined,
     });
     if (ok) await run(() => deletePeople({ ids: [person.id] }), { onSuccess: () => router.push("/admin/people") });
   };
