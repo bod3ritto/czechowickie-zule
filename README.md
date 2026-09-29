@@ -51,6 +51,7 @@ Pliki w `supabase/migrations/` (uruchamiaj w kolejności nazw):
 - `…_submissions.sql` — zgłoszenia od odwiedzających: kolumny `submitted_at` / `submitted_by` oraz funkcje `submit_person()` i `submit_relationship()`.
 - `…_person_categories.sql` — 10 dodatkowych kategorii osób (Świeżak, Osiedlowy, Imprezowicz, Kibic, Sportowiec, Działkowicz, Złota rączka, Biznesmen, Emigrant, Tajemniczy).
 - `…_triumwirat.sql` — typ relacji „Triumwirat” (dwie osoby z legendarnej trójki; trójka = trzy takie relacje).
+- `…_zwiazek.sql` — typ relacji „Związek” (para).
 
 **Opcja A — SQL Editor:** wklej i uruchom pliki po kolei.
 **Opcja B — Supabase CLI:**
