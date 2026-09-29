@@ -3,7 +3,9 @@
  * (RLS protects the data); no service-role key is used by the app at all.
  */
 export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+// The Vercel–Supabase integration names it PUBLISHABLE_KEY; both are the same public key.
+export const supabaseAnonKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 
 /** Without Supabase the public site falls back to data/*.ts and the admin shows setup instructions. */
 export function isSupabaseConfigured(): boolean {
