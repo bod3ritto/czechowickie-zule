@@ -1,7 +1,7 @@
 "use server";
 
 import type { z } from "zod";
-import { adminAction, revalidatePublic } from "./admin-action";
+import { adminAction, deleteByIds, revalidatePublic } from "./admin-action";
 import { fail, friendlyDbError, ok } from "./result";
 import { STATUS_MESSAGE } from "./status-messages";
 import { idsSchema } from "@/lib/validations/common";
@@ -53,8 +53,8 @@ export async function setLoreStatus(input: z.input<typeof statusChangeSchema>) {
 }
 
 const deleteAction = adminAction(idsSchema, async ({ ids }, { db }) => {
-  const { error } = await db.from("lore").delete().in("id", ids);
-  if (error) return fail(friendlyDbError(error, "Nie udało się usunąć."));
+  const failed = await deleteByIds(db, "lore", ids);
+  if (failed) return failed;
   revalidatePublic();
   return ok(undefined, ids.length > 1 ? `Usunięto ${ids.length} wpisy lore.` : "Usunięto lore.");
 });
