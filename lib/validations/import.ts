@@ -22,11 +22,11 @@ const row = <T extends z.ZodRawShape>(shape: T) => z.looseObject(shape);
 export const importSchema = z.object({
   version: z.literal(1, "Nieobsługiwana wersja pliku (oczekiwano 1)."),
   exported_at: ts,
-  locations: z.array(row({ id: z.uuid(), name: z.string().min(1) })).default([]),
+  locations: z.array(row({ id: z.guid(), name: z.string().min(1) })).default([]),
   people: z
     .array(
       row({
-        id: z.uuid(),
+        id: z.guid(),
         slug: z.string().regex(SLUG_RE, "Nieprawidłowy slug osoby."),
         first_name: z.string().min(1),
         category: z.enum(PERSON_CATEGORY_VALUES).default("bywalec"),
@@ -40,10 +40,10 @@ export const importSchema = z.object({
   relationships: z
     .array(
       row({
-        id: z.uuid(),
+        id: z.guid(),
         slug: z.string().regex(SLUG_RE),
-        person_a: z.uuid(),
-        person_b: z.uuid(),
+        person_a: z.guid(),
+        person_b: z.guid(),
         type: z.enum(RELATIONSHIP_TYPE_VALUES),
         strength: z.number().int().min(0).max(100).default(50),
         description: z.string().default(""),
@@ -52,14 +52,14 @@ export const importSchema = z.object({
       }).refine((r) => r.person_a !== r.person_b, "Relacja łączy osobę samą ze sobą."),
     )
     .default([]),
-  events: z.array(row({ id: z.uuid(), title: z.string().min(1), status })).default([]),
-  event_people: z.array(row({ event_id: z.uuid(), person_id: z.uuid() })).default([]),
-  event_relationships: z.array(row({ event_id: z.uuid(), relationship_id: z.uuid() })).default([]),
+  events: z.array(row({ id: z.guid(), title: z.string().min(1), status })).default([]),
+  event_people: z.array(row({ event_id: z.guid(), person_id: z.guid() })).default([]),
+  event_relationships: z.array(row({ event_id: z.guid(), relationship_id: z.guid() })).default([]),
   lore: z
-    .array(row({ id: z.uuid(), content: z.string().min(1), lore_type: z.enum(LORE_TYPE_VALUES).default("ciekawostka"), status }))
+    .array(row({ id: z.guid(), content: z.string().min(1), lore_type: z.enum(LORE_TYPE_VALUES).default("ciekawostka"), status }))
     .default([]),
-  lore_people: z.array(row({ lore_id: z.uuid(), person_id: z.uuid() })).default([]),
-  media: z.array(row({ id: z.uuid(), storage_path: z.string().min(1), kind: z.enum(MEDIA_KIND_VALUES) })).default([]),
+  lore_people: z.array(row({ lore_id: z.guid(), person_id: z.guid() })).default([]),
+  media: z.array(row({ id: z.guid(), storage_path: z.string().min(1), kind: z.enum(MEDIA_KIND_VALUES) })).default([]),
 });
 
 export type ImportPayload = z.output<typeof importSchema>;

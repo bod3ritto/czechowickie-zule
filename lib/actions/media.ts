@@ -10,7 +10,7 @@ import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES as MAX_BYTES } from "@/lib/media-c
 
 const owner = z.object({
   ownerType: z.enum(["person", "event", "lore"]),
-  ownerId: z.uuid(),
+  ownerId: z.guid(),
 });
 
 const ownerColumn = { person: "person_id", event: "event_id", lore: "lore_id" } as const;
@@ -109,7 +109,7 @@ export async function registerMedia(input: z.input<typeof owner> & {
   return registerAction(input);
 }
 
-const primaryAction = adminAction(owner.extend({ mediaId: z.uuid() }), async ({ mediaId, ownerType, ownerId }, { db }) => {
+const primaryAction = adminAction(owner.extend({ mediaId: z.guid() }), async ({ mediaId, ownerType, ownerId }, { db }) => {
   const error = await makePrimary(db, mediaId, ownerType, ownerId);
   if (error) return fail(friendlyDbError(error));
   revalidatePublic();
@@ -120,7 +120,7 @@ export async function setPrimaryMedia(input: { mediaId: string; ownerType: "pers
   return primaryAction(input);
 }
 
-const deleteAction = adminAction(z.object({ mediaId: z.uuid() }), async ({ mediaId }, { db }) => {
+const deleteAction = adminAction(z.object({ mediaId: z.guid() }), async ({ mediaId }, { db }) => {
   const { data: row } = await db.from("media").select("storage_path").eq("id", mediaId).single();
   if (!row) return fail("Nie znaleziono pliku.");
   const { error: storageError } = await db.storage.from(MEDIA_BUCKET).remove([row.storage_path]);

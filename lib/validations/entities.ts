@@ -34,7 +34,7 @@ export const inlineLoreSchema = z.object({
 });
 
 export const loreSchema = z.object({
-  id: z.uuid().optional(),
+  id: z.guid().optional(),
   title: optText(160),
   content: z.string().trim().min(1, "Treść jest wymagana.").max(4000, "Maksymalnie 4000 znaków."),
   loreType: z.enum(LORE_TYPE_VALUES),
@@ -48,7 +48,7 @@ export const loreSchema = z.object({
 
 // ---------------------------------------------------------------- people ----
 export const personSchema = z.object({
-  id: z.uuid().optional(),
+  id: z.guid().optional(),
   firstName: z.string().trim().min(1, "Imię jest wymagane.").max(80, "Maksymalnie 80 znaków."),
   lastName: optText(80),
   nickname: optText(80),
@@ -75,9 +75,9 @@ export const personSchema = z.object({
 // --------------------------------------------------------- relationships ----
 export const relationshipSchema = z
   .object({
-    id: z.uuid().optional(),
-    personA: z.uuid("Wybierz osobę A."),
-    personB: z.uuid("Wybierz osobę B."),
+    id: z.guid().optional(),
+    personA: z.guid("Wybierz osobę A."),
+    personB: z.guid("Wybierz osobę B."),
     type: z.enum(RELATIONSHIP_TYPE_VALUES, "Wybierz typ relacji."),
     strength: z.number().int().min(0).max(100),
     sinceYear: optYear,
@@ -107,7 +107,7 @@ export const relationshipSchema = z
 
 // ---------------------------------------------------------------- events ----
 export const eventSchema = z.object({
-  id: z.uuid().optional(),
+  id: z.guid().optional(),
   title: z.string().trim().min(1, "Tytuł jest wymagany.").max(200, "Maksymalnie 200 znaków."),
   description: optText(4000),
   eventDate: optDate,
@@ -124,7 +124,7 @@ export const eventSchema = z.object({
 
 /** Inline date change from the person's event timeline. */
 export const eventDateSchema = z.object({
-  id: z.uuid(),
+  id: z.guid(),
   year: optYear,
   eventDate: optDate,
 });
@@ -132,7 +132,7 @@ export const eventDateSchema = z.object({
 // ------------------------------------------------------------- locations ----
 export const locationSchema = z
   .object({
-    id: z.uuid().optional(),
+    id: z.guid().optional(),
     name: z.string().trim().min(1, "Nazwa jest wymagana.").max(120),
     description: optText(1000),
     address: optText(300),
@@ -146,7 +146,7 @@ export const locationSchema = z
 
 // ------------------------------------------------------------------ bulk ----
 export const statusChangeSchema = z.object({
-  ids: z.array(z.uuid()).min(1, "Nic nie zaznaczono.").max(500),
+  ids: z.array(z.guid()).min(1, "Nic nie zaznaczono.").max(500),
   status,
 });
 
