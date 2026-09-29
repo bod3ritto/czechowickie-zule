@@ -153,6 +153,13 @@ describe("people", () => {
     expect(await count("people", "slug='testowy-kopia'")).toBe(1);
   });
 
+  it("saves people in the new categories", async () => {
+    const r = await savePerson(personInput({ slug: "zlota-raczka-test", category: "zlota-raczka" }));
+    expectOk(r);
+    expectOk(await setPeopleCategory({ ids: [r.data.id], category: "tajemniczy" }));
+    expect(await count("people", "slug = 'zlota-raczka-test' and category = 'tajemniczy'")).toBe(1);
+  });
+
   it("rejects a duplicate slug with a readable message", async () => {
     const r = await savePerson(personInput({ slug: "marek" }));
     expect(r).toMatchObject({ ok: false });

@@ -98,6 +98,16 @@ export const PERSON_CATEGORIES: Record<PersonCategory, CategoryMeta> = {
   "stala-ekipa": { label: "Stała ekipa", color: "#e4e4e7" },
   bywalec: { label: "Bywalec", color: "#a78bfa" },
   "z-daleka": { label: "Z daleka", color: "#71717a" },
+  swiezak: { label: "Świeżak", color: "#86efac" },
+  osiedlowy: { label: "Osiedlowy", color: "#7dd3fc" },
+  imprezowicz: { label: "Imprezowicz", color: "#fb923c" },
+  kibic: { label: "Kibic", color: "#f87171" },
+  sportowiec: { label: "Sportowiec", color: "#2dd4bf" },
+  dzialkowicz: { label: "Działkowicz", color: "#a3e635" },
+  "zlota-raczka": { label: "Złota rączka", color: "#d6a77a" },
+  biznesmen: { label: "Biznesmen", color: "#60a5fa" },
+  emigrant: { label: "Emigrant", color: "#f0abfc" },
+  tajemniczy: { label: "Tajemniczy", color: "#6366f1" },
 };
 
 /** Unconfirmed relationships render as a dashed "mystery connection". */

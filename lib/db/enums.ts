@@ -5,7 +5,22 @@
 export const STATUS_VALUES = ["draft", "published", "archived"] as const;
 export const CONFIDENCE_VALUES = ["confirmed", "probable", "lore", "rumor"] as const;
 export const SOURCE_TYPE_VALUES = ["personal", "submitted", "public", "unknown"] as const;
-export const PERSON_CATEGORY_VALUES = ["stala-ekipa", "bywalec", "legenda", "z-daleka"] as const;
+export const PERSON_CATEGORY_VALUES = [
+  "stala-ekipa",
+  "bywalec",
+  "legenda",
+  "z-daleka",
+  "swiezak",
+  "osiedlowy",
+  "imprezowicz",
+  "kibic",
+  "sportowiec",
+  "dzialkowicz",
+  "zlota-raczka",
+  "biznesmen",
+  "emigrant",
+  "tajemniczy",
+] as const;
 export const RELATIONSHIP_TYPE_VALUES = [
   "znajomi",
   "rodzina",
