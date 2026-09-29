@@ -21,14 +21,17 @@ import { PathBanner } from "./path-banner";
 import { LoreOfTheDay } from "./lore-of-the-day";
 import { NetworkStatsCard, NetworkStatsDialog } from "./network-stats";
 import { OnboardingHint } from "./onboarding-hint";
+import { SubmitDialog, type SubmitKind } from "./submit-dialog";
 import { Toast, type ToastMessage } from "./toast";
 
 interface MapShellProps {
   dataset: Dataset;
+  /** Show "Dodaj" (public submissions); needs the database. */
+  canSubmit?: boolean;
   children: ReactNode;
 }
 
-export function MapShell({ dataset, children }: MapShellProps) {
+export function MapShell({ dataset, canSubmit = false, children }: MapShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const index = useMemo(() => buildGraphIndex(dataset), [dataset]);
@@ -52,6 +55,7 @@ export function MapShell({ dataset, children }: MapShellProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [pathTool, setPathTool] = useState<{ open: boolean; from?: PersonId; to?: PersonId }>({ open: false });
   const [statsOpen, setStatsOpen] = useState(false);
+  const [submit, setSubmit] = useState<{ open: boolean; kind: SubmitKind; personId?: PersonId }>({ open: false, kind: "person" });
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
   const focusMode = focusRequested && selectedPersonId !== null;
@@ -175,6 +179,7 @@ export function MapShell({ dataset, children }: MapShellProps) {
     focusMode,
     path,
     graph,
+    canSubmit,
     selectPerson,
     selectRelationship,
     clearSelection,
@@ -187,6 +192,7 @@ export function MapShell({ dataset, children }: MapShellProps) {
     openSearch: () => setSearchOpen(true),
     openPathTool: (from, to) => setPathTool({ open: true, from, to }),
     openNetworkStats: () => setStatsOpen(true),
+    openSubmit: (kind, personId) => setSubmit({ open: true, kind, personId }),
     notify,
   };
 
@@ -240,6 +246,14 @@ export function MapShell({ dataset, children }: MapShellProps) {
           onClose={() => setPathTool({ open: false })}
         />
         <NetworkStatsDialog open={statsOpen} onClose={() => setStatsOpen(false)} />
+        {canSubmit && (
+          <SubmitDialog
+            open={submit.open}
+            kind={submit.kind}
+            personId={submit.personId}
+            onClose={() => setSubmit((s) => ({ ...s, open: false }))}
+          />
+        )}
         <Toast message={toast} onDismiss={() => setToast(null)} />
       </div>
     </MapContext.Provider>

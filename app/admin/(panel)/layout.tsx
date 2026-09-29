@@ -1,6 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/env";
 import { requireAdmin } from "@/lib/auth/admin";
-import { getNetwork, getSearchIndex, listLocations } from "@/lib/queries/admin";
+import { countSubmissions, getNetwork, getSearchIndex, listLocations } from "@/lib/queries/admin";
 import { AdminShell } from "@/components/admin/shell/admin-shell";
 import { SetupNotice } from "@/components/admin/setup-notice";
 
@@ -17,7 +17,12 @@ export default async function PanelLayout({ children }: LayoutProps<"/admin">) {
   // The proxy already sent anonymous visitors to /admin/login?next=…; this
   // catches signed-in users who are not admins (and anyone bypassing the proxy).
   const admin = await requireAdmin();
-  const [network, locations, searchIndex] = await Promise.all([getNetwork(), listLocations(), getSearchIndex()]);
+  const [network, locations, searchIndex, pendingSubmissions] = await Promise.all([
+    getNetwork(),
+    listLocations(),
+    getSearchIndex(),
+    countSubmissions(),
+  ]);
 
   return (
     <AdminShell
@@ -25,6 +30,7 @@ export default async function PanelLayout({ children }: LayoutProps<"/admin">) {
       locations={locations.map((l) => ({ id: l.id, name: l.name }))}
       searchIndex={searchIndex}
       adminEmail={admin.email}
+      pendingSubmissions={pendingSubmissions}
     >
       {children}
     </AdminShell>

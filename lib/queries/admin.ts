@@ -339,3 +339,92 @@ export async function exportAll() {
   });
   return out;
 }
+
+// ------------------------------------------------------------ submissions ----
+/** A submission waiting for review = a draft that came from the public form. */
+export interface PendingPerson {
+  id: string;
+  slug: string;
+  first_name: string;
+  nickname: string | null;
+  bio: string;
+  category: PersonRow["category"];
+  submitted_at: string;
+  submitted_by: string | null;
+  /** Pending relationships submitted together with this person. */
+  relationships: PendingRelationship[];
+}
+
+export interface PendingRelationship {
+  id: string;
+  type: RelationshipRow["type"];
+  description: string;
+  since_year: number | null;
+  submitted_at: string;
+  submitted_by: string | null;
+  personA: { id: string; name: string; status: PersonRow["status"] };
+  personB: { id: string; name: string; status: PersonRow["status"] };
+}
+
+export async function listSubmissions(): Promise<{ people: PendingPerson[]; relationships: PendingRelationship[] }> {
+  const db = await createSessionClient();
+  const [people, rels] = await Promise.all([
+    db
+      .from("people")
+      .select("id, slug, first_name, nickname, bio, category, submitted_at, submitted_by")
+      .eq("status", "draft")
+      .not("submitted_at", "is", null)
+      .order("submitted_at", { ascending: false }),
+    db
+      .from("relationships")
+      .select("id, person_a, person_b, type, description, since_year, submitted_at, submitted_by")
+      .eq("status", "draft")
+      .not("submitted_at", "is", null)
+      .order("submitted_at", { ascending: false }),
+  ]);
+  const pendingPeople = must(people, "zgłoszone osoby");
+  const pendingRels = must(rels, "zgłoszone relacje");
+
+  const ids = [...new Set(pendingRels.flatMap((r) => [r.person_a, r.person_b]))];
+  const ends = ids.length
+    ? must(await db.from("people").select("id, first_name, nickname, status").in("id", ids), "osoby w relacjach")
+    : [];
+  const end = new Map(
+    ends.map((p) => [p.id, { id: p.id, name: p.nickname && p.nickname !== p.first_name ? `${p.first_name} „${p.nickname}”` : p.first_name, status: p.status }]),
+  );
+  const unknown = (id: string) => ({ id, name: "?", status: "draft" as const });
+
+  const relationships: PendingRelationship[] = pendingRels.map((r) => ({
+    id: r.id,
+    type: r.type,
+    description: r.description,
+    since_year: r.since_year,
+    submitted_at: r.submitted_at!,
+    submitted_by: r.submitted_by,
+    personA: end.get(r.person_a) ?? unknown(r.person_a),
+    personB: end.get(r.person_b) ?? unknown(r.person_b),
+  }));
+
+  // A relationship that involves a pending person is reviewed together with that person.
+  const pendingIds = new Set(pendingPeople.map((p) => p.id));
+  const byPerson = new Map<string, PendingRelationship[]>();
+  const standalone: PendingRelationship[] = [];
+  for (const r of relationships) {
+    const owner = pendingIds.has(r.personB.id) ? r.personB.id : pendingIds.has(r.personA.id) ? r.personA.id : null;
+    if (owner) byPerson.set(owner, [...(byPerson.get(owner) ?? []), r]);
+    else standalone.push(r);
+  }
+
+  return {
+    people: pendingPeople.map((p) => ({ ...p, submitted_at: p.submitted_at!, relationships: byPerson.get(p.id) ?? [] })),
+    relationships: standalone,
+  };
+}
+
+export const countSubmissions = cache(async (): Promise<number> => {
+  const db = await createSessionClient();
+  const pending = (table: "people" | "relationships") =>
+    db.from(table).select("id", { count: "exact", head: true }).eq("status", "draft").not("submitted_at", "is", null);
+  const [people, rels] = await Promise.all([pending("people"), pending("relationships")]);
+  return (people.count ?? 0) + (rels.count ?? 0);
+});

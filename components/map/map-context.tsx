@@ -30,6 +30,8 @@ export interface MapState {
   focusMode: boolean;
   path: ActivePath | null;
   graph: GraphApi | null;
+  /** Public submissions are available (database configured). */
+  canSubmit: boolean;
 }
 
 export interface MapActions {
@@ -45,6 +47,7 @@ export interface MapActions {
   openSearch(): void;
   openPathTool(from?: PersonId, to?: PersonId): void;
   openNetworkStats(): void;
+  openSubmit(kind: "person" | "relationship", personId?: PersonId): void;
   notify(message: string, title?: string): void;
 }
 

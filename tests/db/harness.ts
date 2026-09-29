@@ -31,8 +31,10 @@ export const USER_ID = "00000000-0000-4000-8000-000000000002";
 export async function createTestDb({ seed = false } = {}): Promise<PGlite> {
   const db = new PGlite();
   await db.exec(BOOTSTRAP);
-  const migration = readFileSync(resolve(__dirname, "../../supabase/migrations/20260929000001_schema.sql"), "utf8");
-  await db.exec(migration);
+  // Storage migration needs Supabase's storage schema; everything else runs as in production.
+  for (const file of ["20260929000001_schema.sql", "20260930000001_submissions.sql"]) {
+    await db.exec(readFileSync(resolve(__dirname, "../../supabase/migrations", file), "utf8"));
+  }
   await db.exec(`
     insert into auth.users (id, email) values
       ('${ADMIN_ID}', 'admin@example.com'),

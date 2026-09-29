@@ -9,7 +9,12 @@ import { shimClient } from "./postgrest-shim";
  * Postgres with the seed data. Only Next/Supabase plumbing is faked.
  */
 
-const state = vi.hoisted(() => ({ who: null as unknown, db: null as unknown }));
+const state = vi.hoisted(() => {
+  // Public submissions are only offered when Supabase is configured.
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "http://supabase.test";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
+  return { who: null as unknown, db: null as unknown };
+});
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -26,6 +31,8 @@ vi.mock("@/lib/supabase/server", () => ({
     const { shimClient } = await import("./postgrest-shim");
     return shimClient(state.db as PGlite, state.who as never);
   },
+  // Public submissions always run as anon, whoever is signed in.
+  createPublicClient: () => shimClient(state.db as PGlite, { role: "anon" }),
 }));
 vi.mock("@/lib/auth/admin", () => ({
   getAdmin: async () => {
@@ -39,6 +46,9 @@ import { deleteRelationships, saveRelationship, setRelationshipsStatus, setRelat
 import { deleteLore, saveLore, setLoreStatus } from "@/lib/actions/lore";
 import { deleteEvents, saveEvent, setEventsStatus } from "@/lib/actions/events";
 import { deleteLocations, saveLocation } from "@/lib/actions/locations";
+import { submitPerson, submitRelationship } from "@/lib/actions/submissions";
+import { approveSubmissions } from "@/lib/actions/review";
+import { countSubmissions, listSubmissions } from "@/lib/queries/admin";
 import { exportAll, getDashboard, getEventDetail, getLoreDetail, getPersonDetail, getRelationshipDetail, getSearchIndex, listAudit, listEvents, listLocations, listLore, listPeople, listRelationships } from "@/lib/queries/admin";
 
 let db: PGlite;
@@ -262,6 +272,58 @@ describe("events and locations", () => {
     expectOk(await deleteLocations({ ids: [created.data.id] }));
     const seeded = (await db.query<{ id: string }>("select id from public.locations limit 1")).rows[0].id;
     expectOk(await deleteLocations({ ids: [seeded] }));
+  });
+});
+
+describe("public submissions → admin review", () => {
+  it("a visitor submits a person (linked to someone) and a relationship; admin sees both in the queue", async () => {
+    state.who = anon;
+    expectOk(await submitPerson({ firstName: "Zenek", nickname: "Żółw", bio: "Nowy", relatedTo: "seba", relatedType: "sport", submittedBy: "Kolega" }));
+    expectOk(await submitRelationship({ personA: "rafal", personB: "dawid", type: "praca", sinceYear: "2019" }));
+    // Not public yet.
+    expect(await count("people", "first_name = 'Zenek' and status = 'draft'")).toBe(1);
+
+    state.who = admin;
+    const queue = await listSubmissions();
+    const zenek = queue.people.find((p) => p.first_name === "Zenek")!;
+    expect(zenek).toMatchObject({ nickname: "Żółw", submitted_by: "Kolega" });
+    expect(zenek.relationships).toHaveLength(1);
+    expect(queue.relationships.some((r) => r.personA.name.startsWith("Rafał") && r.type === "praca")).toBe(true);
+    expect(await countSubmissions()).toBe(3);
+  });
+
+  it("approving publishes the person together with its relationship; rejecting deletes", async () => {
+    const queue = await listSubmissions();
+    const zenek = queue.people.find((p) => p.first_name === "Zenek")!;
+    expectOk(await approveSubmissions({ people: [zenek.id], relationships: zenek.relationships.map((r) => r.id) }));
+    expect(await count("people", "first_name = 'Zenek' and status = 'published'")).toBe(1);
+    expect(await count("relationships", `id = '${zenek.relationships[0].id}' and status = 'published'`)).toBe(1);
+
+    const rel = queue.relationships[0];
+    expectOk(await deleteRelationships({ ids: [rel.id] }));
+    expect((await listSubmissions()).relationships).toHaveLength(0);
+  });
+
+  it("validates and reports errors to the visitor", async () => {
+    state.who = anon;
+    expect(await submitPerson({ firstName: "" })).toMatchObject({ ok: false, fieldErrors: { firstName: expect.any(String) } });
+    expect(await submitRelationship({ personA: "marek", personB: "marek", type: "znajomi" })).toMatchObject({ ok: false });
+    const dup = await submitRelationship({ personA: "rafal", personB: "dawid", type: "praca" }); // rejected above, so allowed again
+    expectOk(dup);
+    const again = await submitRelationship({ personA: "dawid", personB: "rafal", type: "praca" });
+    expect(again).toMatchObject({ ok: false, error: expect.stringMatching(/już/) });
+  });
+
+  it("silently drops bot submissions (honeypot)", async () => {
+    state.who = anon;
+    expectOk(await submitPerson({ firstName: "Bot", website: "http://spam" }));
+    expect(await count("people", "first_name = 'Bot'")).toBe(0);
+  });
+
+  it("visitors cannot approve", async () => {
+    const queue = await listSubmissions();
+    state.who = anon;
+    expect(await approveSubmissions({ relationships: queue.relationships.map((r) => r.id) })).toMatchObject({ ok: false });
   });
 });
 

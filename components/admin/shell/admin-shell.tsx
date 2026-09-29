@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ExternalLink,
   History,
+  Inbox,
   LayoutDashboard,
   Link2,
   LogOut,
@@ -45,6 +46,7 @@ import type { SearchItem } from "@/lib/queries/admin";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/admin/submissions", label: "Zgłoszenia", icon: Inbox, badge: true },
   { href: "/admin/graph", label: "Graf", icon: Network },
   { href: "/admin/people", label: "Osoby", icon: Users },
   { href: "/admin/relationships", label: "Relacje", icon: Link2 },
@@ -58,9 +60,9 @@ const SECONDARY = [
   { href: "/admin/settings", label: "Ustawienia", icon: Settings },
 ];
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ onNavigate, pendingSubmissions = 0 }: { onNavigate?: () => void; pendingSubmissions?: number }) {
   const pathname = usePathname();
-  const item = ({ href, label, icon: Icon, exact }: (typeof NAV)[number] & { exact?: boolean }) => {
+  const item = ({ href, label, icon: Icon, exact, badge }: { href: string; label: string; icon: typeof Inbox; exact?: boolean; badge?: boolean }) => {
     const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
     return (
       <li key={href}>
@@ -75,6 +77,11 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         >
           <Icon className="size-4" />
           {label}
+          {badge && pendingSubmissions > 0 && (
+            <span className="ml-auto rounded-full bg-amber-500/15 px-1.5 text-xs font-medium tabular-nums text-amber-400" aria-label={`${pendingSubmissions} do sprawdzenia`}>
+              {pendingSubmissions}
+            </span>
+          )}
         </Link>
       </li>
     );
@@ -110,7 +117,7 @@ function isTyping(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || Boolean(target.closest("[role=combobox], [cmdk-input]"));
 }
 
-function ShellChrome({ children, adminEmail }: { children: ReactNode; adminEmail: string }) {
+function ShellChrome({ children, adminEmail, pendingSubmissions }: { children: ReactNode; adminEmail: string; pendingSubmissions: number }) {
   const quickAdd = useQuickAdd();
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
@@ -145,7 +152,7 @@ function ShellChrome({ children, adminEmail }: { children: ReactNode; adminEmail
         <div className="flex h-14 items-center border-b px-4">
           <Brand />
         </div>
-        <NavLinks />
+        <NavLinks pendingSubmissions={pendingSubmissions} />
       </aside>
 
       {/* Mobile drawer */}
@@ -155,7 +162,7 @@ function ShellChrome({ children, adminEmail }: { children: ReactNode; adminEmail
           <div className="flex h-14 items-center border-b px-4">
             <Brand />
           </div>
-          <NavLinks onNavigate={() => setDrawer(false)} />
+          <NavLinks onNavigate={() => setDrawer(false)} pendingSubmissions={pendingSubmissions} />
         </SheetContent>
       </Sheet>
 
@@ -246,12 +253,15 @@ export function AdminShell({
   locations,
   searchIndex,
   adminEmail,
+  pendingSubmissions = 0,
   children,
 }: {
   network: NetworkData;
   locations: LocationOption[];
   searchIndex: SearchItem[];
   adminEmail: string;
+  /** Public submissions waiting for review (badge in the sidebar). */
+  pendingSubmissions?: number;
   children: ReactNode;
 }) {
   return (
@@ -260,7 +270,7 @@ export function AdminShell({
         <ConfirmProvider>
           <UnsavedChangesProvider>
             <QuickAddProvider>
-              <ShellChrome adminEmail={adminEmail}>{children}</ShellChrome>
+              <ShellChrome adminEmail={adminEmail} pendingSubmissions={pendingSubmissions}>{children}</ShellChrome>
             </QuickAddProvider>
           </UnsavedChangesProvider>
         </ConfirmProvider>
