@@ -88,7 +88,7 @@ export async function deletePeople(input: z.input<typeof idsSchema>) {
   return deleteAction(input);
 }
 
-const duplicateAction = adminAction(z.object({ id: z.uuid() }), async ({ id }, { db }) => {
+const duplicateAction = adminAction(z.object({ id: z.guid() }), async ({ id }, { db }) => {
   const { data: source, error } = await db.from("people").select("*").eq("id", id).single();
   if (error || !source) return fail("Nie znaleziono osoby.");
   const { data: taken } = await db.from("people").select("slug").like("slug", `${source.slug}%`);
@@ -108,7 +108,7 @@ export async function duplicatePerson(input: { id: string }) {
 }
 
 const categoryAction = adminAction(
-  z.object({ ids: z.array(z.uuid()).min(1).max(500), category: z.enum(PERSON_CATEGORY_VALUES) }),
+  z.object({ ids: z.array(z.guid()).min(1).max(500), category: z.enum(PERSON_CATEGORY_VALUES) }),
   async ({ ids, category }, { db }) => {
     const { error } = await db.from("people").update({ category }).in("id", ids);
     if (error) return fail(friendlyDbError(error));

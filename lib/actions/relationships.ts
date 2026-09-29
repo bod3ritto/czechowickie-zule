@@ -75,7 +75,7 @@ export async function setRelationshipsStatus(input: z.input<typeof statusChangeS
 }
 
 const typeAction = adminAction(
-  z.object({ ids: z.array(z.uuid()).min(1).max(500), type: z.enum(RELATIONSHIP_TYPE_VALUES) }),
+  z.object({ ids: z.array(z.guid()).min(1).max(500), type: z.enum(RELATIONSHIP_TYPE_VALUES) }),
   async ({ ids, type }, { db }) => {
     const { error } = await db.from("relationships").update({ type }).in("id", ids);
     if (error) return fail(friendlyDbError(error));

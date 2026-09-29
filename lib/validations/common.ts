@@ -43,7 +43,7 @@ export const optUuid = z
   .string()
   .optional()
   .nullable()
-  .refine((v) => !v || z.uuid().safeParse(v).success, "Nieprawidłowy identyfikator.")
+  .refine((v) => !v || z.guid().safeParse(v).success, "Nieprawidłowy identyfikator.")
   .transform((v) => (v ? v : null));
 
 export const optCoordinate = (min: number, max: number) =>
@@ -55,7 +55,7 @@ export const optCoordinate = (min: number, max: number) =>
     .refine((v) => !v || (!Number.isNaN(Number(v.replace(",", "."))) && Math.abs(Number(v.replace(",", "."))) <= max && Number(v.replace(",", ".")) >= min), `Wartość od ${min} do ${max}.`)
     .transform((v) => (v ? Number(v.replace(",", ".")) : null));
 
-export const idList = (max = 200) => z.array(z.uuid()).max(max);
+export const idList = (max = 200) => z.array(z.guid()).max(max);
 
 export const stringList = (maxItems: number, maxLength: number) =>
   z
@@ -63,7 +63,7 @@ export const stringList = (maxItems: number, maxLength: number) =>
     .max(maxItems)
     .transform((list) => [...new Set(list)]);
 
-export const idsSchema = z.object({ ids: z.array(z.uuid()).min(1, "Nic nie zaznaczono.").max(500) });
+export const idsSchema = z.object({ ids: z.array(z.guid()).min(1, "Nic nie zaznaczono.").max(500) });
 
 /** Year taken from an explicit year or, failing that, from a date. */
 export function yearFrom(year: number | null, date: string | null): number | null {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { personSchema, relationshipSchema, eventSchema, loreSchema, locationSchema } from "@/lib/validations/entities";
+import { idsSchema } from "@/lib/validations/common";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -100,5 +101,19 @@ describe("event / lore / location validation", () => {
   it("location needs both coordinates or none", () => {
     expect(locationSchema.safeParse({ name: "Boisko", lat: "49.9", lng: "" }).success).toBe(false);
     expect(locationSchema.parse({ name: "Boisko", lat: "49,9118", lng: "19.0066" }).lat).toBeCloseTo(49.9118);
+  });
+});
+
+describe("id validation", () => {
+  // Seed rows use md5(...)::uuid, whose version/variant bits are not RFC 9562.
+  const seedId = "0ec93dc7-9838-e2ea-e9aa-a0ba61785be8";
+
+  it("accepts any Postgres uuid, including md5-derived seed ids", () => {
+    expect(idsSchema.safeParse({ ids: [seedId, A] }).success).toBe(true);
+    expect(relationshipSchema.safeParse({ ...relationship, personA: seedId }).success).toBe(true);
+  });
+
+  it("rejects malformed ids", () => {
+    expect(idsSchema.safeParse({ ids: ["not-a-uuid"] }).success).toBe(false);
   });
 });
