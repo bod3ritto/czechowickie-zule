@@ -78,6 +78,7 @@ export type RelationshipType =
   | "podobno"
   | "duet"
   | "triumwirat"
+  | "zwiazek"
   | "inne";
 
 export type RelationshipTone = "pozytywna" | "neutralna" | "zabawna" | "skomplikowana";
