@@ -12,6 +12,7 @@ export interface RelationshipTypeMeta {
 export const RELATIONSHIP_TYPES: Record<RelationshipType, RelationshipTypeMeta> = {
   znajomi: { label: "Znajomi", color: "#7dd3fc", dash: [], filter: "znajomi" },
   duet: { label: "Legendarny duet", color: "#e9d5ff", dash: [], filter: "znajomi" },
+  triumwirat: { label: "Triumwirat", color: "#a855f7", dash: [], filter: "znajomi" },
   rodzina: { label: "Rodzina", color: "#f0abfc", dash: [], filter: "rodzina" },
   szkola: { label: "Szkoła", color: "#fcd34d", dash: [], filter: "szkola" },
   praca: { label: "Praca", color: "#a5b4fc", dash: [4, 2], filter: "praca" },

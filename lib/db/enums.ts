@@ -35,6 +35,7 @@ export const RELATIONSHIP_TYPE_VALUES = [
   "z-widzenia",
   "podobno",
   "duet",
+  "triumwirat",
   "inne",
 ] as const;
 export const RELATIONSHIP_TONE_VALUES = ["pozytywna", "neutralna", "zabawna", "skomplikowana"] as const;

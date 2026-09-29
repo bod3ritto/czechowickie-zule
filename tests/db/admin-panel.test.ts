@@ -222,6 +222,12 @@ describe("relationships", () => {
     expect(await count("relationships", `id='${created.data.id}'`)).toBe(0);
   });
 
+  it("saves a relationship of the new type Triumwirat", async () => {
+    const r = await saveRelationship(relInput(await idOfSlug("zbyszek"), await idOfSlug("magda"), { type: "triumwirat" }));
+    expectOk(r);
+    expect(await count("relationships", `id = '${r.data.id}' and type = 'triumwirat'`)).toBe(1);
+  });
+
   it("deletes seeded relationships in bulk", async () => {
     const ids = (await db.query<{ id: string }>("select id from public.relationships limit 3")).rows.map((r) => r.id);
     expectOk(await deleteRelationships({ ids }));
