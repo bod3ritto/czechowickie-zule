@@ -32,7 +32,7 @@ export async function createTestDb({ seed = false } = {}): Promise<PGlite> {
   const db = new PGlite();
   await db.exec(BOOTSTRAP);
   // Storage migration needs Supabase's storage schema; everything else runs as in production.
-  for (const file of ["20260929000001_schema.sql", "20260930000001_submissions.sql", "20261001000001_person_categories.sql", "20261002000001_triumwirat.sql", "20261003000001_zwiazek.sql"]) {
+  for (const file of ["20260929000001_schema.sql", "20260930000001_submissions.sql", "20261001000001_person_categories.sql", "20261002000001_triumwirat.sql", "20261003000001_zwiazek.sql", "20261004000001_change_requests.sql"]) {
     await db.exec(readFileSync(resolve(__dirname, "../../supabase/migrations", file), "utf8"));
   }
   await db.exec(`

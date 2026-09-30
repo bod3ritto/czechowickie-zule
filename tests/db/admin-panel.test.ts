@@ -46,9 +46,9 @@ import { deleteRelationships, saveRelationship, setRelationshipsStatus, setRelat
 import { deleteLore, saveLore, setLoreStatus } from "@/lib/actions/lore";
 import { deleteEvents, saveEvent, setEventsStatus } from "@/lib/actions/events";
 import { deleteLocations, saveLocation } from "@/lib/actions/locations";
-import { submitPerson, submitRelationship } from "@/lib/actions/submissions";
-import { approveSubmissions } from "@/lib/actions/review";
-import { countSubmissions, listSubmissions } from "@/lib/queries/admin";
+import { submitChangeRequest, submitPerson, submitRelationship } from "@/lib/actions/submissions";
+import { approveSubmissions, closeChangeRequest, removePersonForRequest } from "@/lib/actions/review";
+import { countSubmissions, listChangeRequests, listSubmissions } from "@/lib/queries/admin";
 import { exportAll, getDashboard, getEventDetail, getLoreDetail, getPersonDetail, getRelationshipDetail, getSearchIndex, listAudit, listEvents, listLocations, listLore, listPeople, listRelationships } from "@/lib/queries/admin";
 
 let db: PGlite;
@@ -343,6 +343,54 @@ describe("public submissions → admin review", () => {
     const queue = await listSubmissions();
     state.who = anon;
     expect(await approveSubmissions({ relationships: queue.relationships.map((r) => r.id) })).toMatchObject({ ok: false });
+  });
+});
+
+describe("change requests → admin", () => {
+  it("a visitor asks for a correction and for removal; admin sees both and they count as pending", async () => {
+    state.who = anon;
+    const before = await count("change_requests");
+    expectOk(await submitChangeRequest({ kind: "correction", person: "seba", message: "Ksywka to Sebix", contact: "seba@example.com" }));
+    expectOk(await submitChangeRequest({ kind: "removal", person: "bartek" }));
+    expect(await count("change_requests")).toBe(before + 2);
+
+    state.who = admin;
+    const { open } = await listChangeRequests();
+    expect(open.map((r) => [r.kind, r.target_label])).toEqual(
+      expect.arrayContaining([
+        ["correction", "Seba"],
+        ["removal", "Bartek „Bartas”"],
+      ]),
+    );
+    expect(await countSubmissions()).toBeGreaterThanOrEqual(2);
+  });
+
+  it("validates the form", async () => {
+    state.who = anon;
+    expect(await submitChangeRequest({ kind: "correction", person: "seba" })).toMatchObject({ ok: false, fieldErrors: { message: expect.any(String) } });
+    expect(await submitChangeRequest({ kind: "removal" })).toMatchObject({ ok: false, fieldErrors: { person: expect.any(String) } });
+  });
+
+  it("admin resolves a correction and removes a person on request", async () => {
+    const { open } = await listChangeRequests();
+    const correction = open.find((r) => r.kind === "correction" && r.target_label === "Seba")!;
+    const removal = open.find((r) => r.kind === "removal")!;
+
+    expectOk(await closeChangeRequest({ id: correction.id, status: "resolved" }));
+    expectOk(await removePersonForRequest({ id: removal.id }));
+    expect(await count("people", "slug = 'bartek'")).toBe(0);
+
+    const after = await listChangeRequests();
+    expect(after.open.find((r) => r.id === removal.id)).toBeUndefined();
+    expect(after.closed.map((r) => r.id)).toEqual(expect.arrayContaining([correction.id, removal.id]));
+    // The request keeps its label after the person is gone.
+    expect(after.closed.find((r) => r.id === removal.id)).toMatchObject({ person_id: null, target_label: "Bartek „Bartas”" });
+  });
+
+  it("visitors cannot close requests", async () => {
+    const { closed } = await listChangeRequests();
+    state.who = anon;
+    expect(await closeChangeRequest({ id: closed[0].id, status: "open" })).toMatchObject({ ok: false });
   });
 });
 

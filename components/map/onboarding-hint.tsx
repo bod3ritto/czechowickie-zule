@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Hand, Move, MousePointerClick, ZoomIn } from "lucide-react";
+import { Hand, Move, MousePointerClick, ShieldAlert, UserX, ZoomIn } from "lucide-react";
 import { useStoredFlag, writeStoredFlag } from "@/lib/hooks";
 import { Button } from "@/components/ui/button";
+import { useMap } from "./map-context";
 
-const KEY = "cz-onboarding-dismissed";
+// v2: adds the "remove me from the map" notice, so everyone sees it once more.
+const KEY = "cz-onboarding-v2-dismissed";
 
 /** First-visit hint. Dismissal is remembered in localStorage. */
 export function OnboardingHint() {
+  const { canSubmit, openChangeRequest } = useMap();
   // Server snapshot = "dismissed" so nothing renders during SSR.
   const stored = useStoredFlag(KEY, true);
   const [dismissedNow, setDismissedNow] = useState(false);
@@ -44,6 +47,29 @@ export function OnboardingHint() {
             Złap osobę — przestaw ją na mapie
           </li>
         </ul>
+        {canSubmit && (
+          <div className="mt-5 rounded-lg border border-amber-400/25 bg-amber-400/[0.07] p-3.5">
+            <p className="flex items-center gap-2 text-sm font-medium text-fg">
+              <ShieldAlert className="size-4 text-amber-300" aria-hidden="true" />
+              Jesteś na mapie i coś Ci nie pasuje?
+            </p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-fg-muted">
+              Jeśli nie zgadzasz się z informacjami przedstawionymi na grafie, utwórz zgłoszenie z prośbą o usunięcie siebie z grafu. Poprawki
+              zgłosisz przyciskiem „Zgłoś zmianę” w panelu osoby lub relacji.
+            </p>
+            <Button
+              size="sm"
+              className="mt-3 w-full"
+              onClick={() => {
+                dismiss();
+                openChangeRequest({ kind: "removal" });
+              }}
+            >
+              <UserX className="size-3.5" />
+              Zgłoś usunięcie siebie z grafu
+            </Button>
+          </div>
+        )}
         <Button variant="solid" className="mt-5 w-full" onClick={dismiss} autoFocus>
           Rozumiem
         </Button>

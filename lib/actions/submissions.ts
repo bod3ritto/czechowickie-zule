@@ -3,9 +3,11 @@
 import { isSupabaseConfigured } from "@/lib/env";
 import { createPublicClient } from "@/lib/supabase/server";
 import {
+  changeRequestSchema,
   personSubmissionSchema,
   relationshipSubmissionSchema,
   submissionErrorMessage,
+  type ChangeRequestInput,
   type PersonSubmissionInput,
   type RelationshipSubmissionInput,
 } from "@/lib/validations/submissions";
@@ -65,4 +67,30 @@ export async function submitRelationship(input: RelationshipSubmissionInput): Pr
     return fail(submissionErrorMessage(error.message));
   }
   return ok(undefined, THANKS);
+}
+
+export async function submitChangeRequest(input: ChangeRequestInput): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) return fail(UNAVAILABLE);
+  const parsed = changeRequestSchema.safeParse(input);
+  if (!parsed.success) return fail("Popraw zaznaczone pola.", zodFieldErrors(parsed.error));
+  const v = parsed.data;
+  const thanks =
+    v.kind === "removal"
+      ? "Dzięki. Prośba o usunięcie trafiła do administratora."
+      : "Dzięki! Prośba o zmianę trafiła do administratora.";
+  if (v.website) return ok(undefined, thanks);
+
+  const { error } = await createPublicClient().rpc("submit_change_request", {
+    kind: v.kind,
+    message: v.message,
+    person: v.person,
+    relationship: v.relationship,
+    contact: v.contact,
+    submitted_by: v.submittedBy,
+  });
+  if (error) {
+    console.error("[submission] change request:", error.message);
+    return fail(submissionErrorMessage(error.message));
+  }
+  return ok(undefined, thanks);
 }

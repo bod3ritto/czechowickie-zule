@@ -40,6 +40,22 @@ export const relationshipSubmissionSchema = z
   })
   .refine((v) => v.personA !== v.personB, { message: "Wybierz dwie różne osoby.", path: ["personB"] });
 
+/** "Zgłoś zmianę": a correction to a person/relationship, or a removal request for a person. */
+export const changeRequestSchema = z
+  .object({
+    kind: z.enum(["correction", "removal"]),
+    person: optText(80),
+    relationship: optText(160),
+    message: optText(1000),
+    contact: optText(200),
+    submittedBy: optText(80),
+    website: honeypot,
+  })
+  .refine((v) => Boolean(v.person) !== Boolean(v.relationship), { message: "Wybierz osobę.", path: ["person"] })
+  .refine((v) => v.kind !== "removal" || Boolean(v.person), { message: "Wybierz osobę do usunięcia.", path: ["person"] })
+  .refine((v) => v.kind !== "correction" || Boolean(v.message), { message: "Napisz, co trzeba poprawić.", path: ["message"] });
+
+export type ChangeRequestInput = z.input<typeof changeRequestSchema>;
 export type PersonSubmissionInput = z.input<typeof personSubmissionSchema>;
 export type RelationshipSubmissionInput = z.input<typeof relationshipSubmissionSchema>;
 
