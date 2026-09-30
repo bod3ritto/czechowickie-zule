@@ -12,6 +12,7 @@ import { ShareButton } from "@/components/ui/share-button";
 import { PersonAvatar } from "@/components/person/person-avatar";
 import { RelationshipBadge } from "./relationship-badge";
 import { ComparePathButton } from "./compare-path-button";
+import { RelationshipChangeRequestButton } from "./change-request-button";
 import { DraftNotice } from "@/components/ui/draft-notice";
 
 interface RelationshipPanelProps {
@@ -108,6 +109,7 @@ export function RelationshipPanel({ index, relationship, currentYear }: Relation
       <div className="mt-5 flex flex-wrap gap-2">
         <ComparePathButton from={a.id} to={b.id} />
         <ShareButton path={relationshipPath(relationship.id)} title={`Czechowickie Żule — ${a.name} & ${b.name}`} />
+        <RelationshipChangeRequestButton relationshipId={relationship.id} />
       </div>
 
       <PanelSection title="Jak się poznali?">

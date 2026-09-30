@@ -22,6 +22,7 @@ import { LoreOfTheDay } from "./lore-of-the-day";
 import { NetworkStatsCard, NetworkStatsDialog } from "./network-stats";
 import { OnboardingHint } from "./onboarding-hint";
 import { SubmitDialog, type SubmitKind } from "./submit-dialog";
+import { ChangeRequestDialog, type ChangeRequestTarget } from "./change-request-dialog";
 import { Toast, type ToastMessage } from "./toast";
 
 interface MapShellProps {
@@ -55,6 +56,10 @@ export function MapShell({ dataset, canSubmit = false, children }: MapShellProps
   const [searchOpen, setSearchOpen] = useState(false);
   const [pathTool, setPathTool] = useState<{ open: boolean; from?: PersonId; to?: PersonId }>({ open: false });
   const [statsOpen, setStatsOpen] = useState(false);
+  const [changeRequest, setChangeRequest] = useState<{ open: boolean; target: ChangeRequestTarget }>({
+    open: false,
+    target: { kind: "correction" },
+  });
   const [submit, setSubmit] = useState<{ open: boolean; kind: SubmitKind; personId?: PersonId }>({ open: false, kind: "person" });
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
@@ -193,6 +198,7 @@ export function MapShell({ dataset, canSubmit = false, children }: MapShellProps
     openPathTool: (from, to) => setPathTool({ open: true, from, to }),
     openNetworkStats: () => setStatsOpen(true),
     openSubmit: (kind, personId) => setSubmit({ open: true, kind, personId }),
+    openChangeRequest: (target) => setChangeRequest({ open: true, target }),
     notify,
   };
 
@@ -252,6 +258,13 @@ export function MapShell({ dataset, canSubmit = false, children }: MapShellProps
             kind={submit.kind}
             personId={submit.personId}
             onClose={() => setSubmit((s) => ({ ...s, open: false }))}
+          />
+        )}
+        {canSubmit && (
+          <ChangeRequestDialog
+            open={changeRequest.open}
+            target={changeRequest.target}
+            onClose={() => setChangeRequest((s) => ({ ...s, open: false }))}
           />
         )}
         <Toast message={toast} onDismiss={() => setToast(null)} />

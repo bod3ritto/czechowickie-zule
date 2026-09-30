@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Inbox, Pencil, X } from "lucide-react";
+import { Check, Pencil, X } from "lucide-react";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
-import { EmptyState, formatDate } from "@/components/admin/common/layout";
+import { formatDate } from "@/components/admin/common/layout";
 import { useConfirm } from "@/components/admin/providers/confirm";
 import { useServerAction } from "@/components/admin/hooks/use-server-action";
 import { approveSubmissions } from "@/lib/actions/review";
@@ -18,15 +18,7 @@ export function SubmissionsQueue({ people, relationships }: { people: PendingPer
   const { run, pending } = useServerAction();
   const confirm = useConfirm();
 
-  if (people.length + relationships.length === 0) {
-    return (
-      <EmptyState
-        icon={<Inbox />}
-        title="Brak zgłoszeń do sprawdzenia"
-        description="Gdy ktoś doda osobę lub relację przez przycisk „Dodaj” na mapie, pojawi się tutaj."
-      />
-    );
-  }
+  if (people.length + relationships.length === 0) return null;
 
   const approveAll = () =>
     run(() =>

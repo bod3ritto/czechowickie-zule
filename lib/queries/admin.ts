@@ -5,6 +5,7 @@ import { mediaPublicUrl } from "@/lib/env";
 import { createSessionClient } from "@/lib/supabase/server";
 import type {
   AuditLogRow,
+  ChangeRequestRow,
   EventRow,
   LocationRow,
   LoreRow,
@@ -425,6 +426,20 @@ export const countSubmissions = cache(async (): Promise<number> => {
   const db = await createSessionClient();
   const pending = (table: "people" | "relationships") =>
     db.from(table).select("id", { count: "exact", head: true }).eq("status", "draft").not("submitted_at", "is", null);
-  const [people, rels] = await Promise.all([pending("people"), pending("relationships")]);
-  return (people.count ?? 0) + (rels.count ?? 0);
+  const [people, rels, requests] = await Promise.all([
+    pending("people"),
+    pending("relationships"),
+    db.from("change_requests").select("id", { count: "exact", head: true }).eq("status", "open"),
+  ]);
+  return (people.count ?? 0) + (rels.count ?? 0) + (requests.count ?? 0);
 });
+
+/** Open change requests (oldest first: first come, first served) + the latest closed ones. */
+export async function listChangeRequests(): Promise<{ open: ChangeRequestRow[]; closed: ChangeRequestRow[] }> {
+  const db = await createSessionClient();
+  const [open, closed] = await Promise.all([
+    db.from("change_requests").select("*").eq("status", "open").order("created_at", { ascending: true }),
+    db.from("change_requests").select("*").neq("status", "open").order("resolved_at", { ascending: false }).limit(20),
+  ]);
+  return { open: must(open, "prośby o zmianę"), closed: must(closed, "załatwione prośby") };
+}

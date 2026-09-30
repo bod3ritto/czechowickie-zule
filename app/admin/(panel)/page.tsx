@@ -36,7 +36,7 @@ export default async function DashboardPage() {
           <Inbox className="size-4 text-amber-400" />
           <span className="flex-1">
             <strong className="font-medium">{countLabel(pending, "zgłoszenie czeka", "zgłoszenia czekają", "zgłoszeń czeka")}</strong> na
-            zatwierdzenie.
+            sprawdzenie.
           </span>
           <ArrowRight className="size-4 text-muted-foreground" />
         </Link>

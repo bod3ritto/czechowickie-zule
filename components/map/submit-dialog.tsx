@@ -30,9 +30,9 @@ export function SubmitDialog({ open, kind, personId, onClose }: SubmitDialogProp
   );
 }
 
-const fieldClass =
+export const fieldClass =
   "w-full rounded-lg border border-line bg-bg px-3 text-sm text-fg placeholder:text-fg-subtle focus-visible:outline-2 focus-visible:outline-brand aria-[invalid=true]:border-red-400/70";
-const inputClass = cn(fieldClass, "h-10");
+export const inputClass = cn(fieldClass, "h-10");
 
 function SubmitBody({ initialKind, personId, onClose }: { initialKind: SubmitKind; personId?: PersonId; onClose(): void }) {
   const [kind, setKind] = useState<SubmitKind>(initialKind);
@@ -95,7 +95,7 @@ function Tab({ active, onClick, icon, children }: { active: boolean; onClick(): 
   );
 }
 
-function usePeopleOptions() {
+export function usePeopleOptions() {
   const { index } = useMap();
   return useMemo(
     () =>
@@ -107,7 +107,7 @@ function usePeopleOptions() {
 }
 
 /** Shared submit plumbing: pending state, field errors, general error. */
-function useSubmit(onDone: (message: string) => void) {
+export function useSubmit(onDone: (message: string) => void) {
   const [pending, startTransition] = useTransition();
   const [errors, setErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +130,9 @@ function useSubmit(onDone: (message: string) => void) {
   /** Hide a field's error as soon as the visitor edits that field. */
   const clearError = (e: React.FormEvent<HTMLFormElement>) => {
     const name = (e.target as HTMLInputElement).name;
-    if (name && errors[name]) setErrors(({ [name]: _removed, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
+    if (!name || !errors[name]) return;
+    setErrors(({ [name]: _removed, ...rest }) => rest); // eslint-disable-line @typescript-eslint/no-unused-vars
+    setError(null);
   };
   return { pending, errors, error, submit, clearError };
 }
@@ -297,7 +299,7 @@ function RelationshipTypeSelect(props: React.SelectHTMLAttributes<HTMLSelectElem
   );
 }
 
-function Signature({ error }: { error?: string }) {
+export function Signature({ error }: { error?: string }) {
   return (
     <>
       <Field label="Twój podpis (opcjonalnie, widzi go tylko admin)" error={error}>
@@ -314,7 +316,7 @@ function Signature({ error }: { error?: string }) {
   );
 }
 
-function FormFooter({ pending, error }: { pending: boolean; error: string | null }) {
+export function FormFooter({ pending, error, label = "Wyślij do zatwierdzenia" }: { pending: boolean; error: string | null; label?: string }) {
   return (
     <div className="mt-1 grid gap-2">
       {error && (
@@ -323,13 +325,13 @@ function FormFooter({ pending, error }: { pending: boolean; error: string | null
         </p>
       )}
       <Button type="submit" variant="solid" disabled={pending} className="w-full">
-        {pending ? "Wysyłanie…" : "Wyślij do zatwierdzenia"}
+        {pending ? "Wysyłanie…" : label}
       </Button>
     </div>
   );
 }
 
-function Field({
+export function Field({
   label,
   error,
   children,

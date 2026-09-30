@@ -143,6 +143,24 @@ export type AuditLogRow = {
   created_at: string;
 };
 
+export type ChangeRequestKind = "correction" | "removal";
+export type ChangeRequestStatus = "open" | "resolved" | "rejected";
+
+/** A visitor's request to fix or remove something on the map (see *_change_requests.sql). */
+export type ChangeRequestRow = {
+  id: string;
+  kind: ChangeRequestKind;
+  person_id: string | null;
+  relationship_id: string | null;
+  target_label: string;
+  message: string;
+  contact: string | null;
+  submitted_by: string | null;
+  status: ChangeRequestStatus;
+  resolved_at: string | null;
+  created_at: string;
+};
+
 export type EventPersonRow = { event_id: string; person_id: string };
 export type EventRelationshipRow = { event_id: string; relationship_id: string };
 export type LorePersonRow = { lore_id: string; person_id: string };
@@ -162,6 +180,7 @@ export interface Database {
       lore_people: Table<LorePersonRow, "lore_id" | "person_id">;
       media: Table<MediaRow, "storage_path" | "kind">;
       audit_logs: Table<AuditLogRow, "action" | "entity_type">;
+      change_requests: Table<ChangeRequestRow, "kind" | "target_label" | "message">;
     };
     Views: Record<string, never>;
     Functions: {
@@ -177,6 +196,17 @@ export interface Database {
           related_to?: string | null;
           related_type?: RelationshipType | null;
           related_description?: string | null;
+          submitted_by?: string | null;
+        };
+        Returns: Json;
+      };
+      submit_change_request: {
+        Args: {
+          kind: ChangeRequestKind;
+          message?: string | null;
+          person?: string | null;
+          relationship?: string | null;
+          contact?: string | null;
           submitted_by?: string | null;
         };
         Returns: Json;

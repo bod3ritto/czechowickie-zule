@@ -48,6 +48,8 @@ export interface MapActions {
   openPathTool(from?: PersonId, to?: PersonId): void;
   openNetworkStats(): void;
   openSubmit(kind: "person" | "relationship", personId?: PersonId): void;
+  /** "Zgłoś zmianę": a correction, or a request to remove a person from the map. */
+  openChangeRequest(target: { kind: "correction" | "removal"; person?: PersonId; relationship?: RelationshipId }): void;
   notify(message: string, title?: string): void;
 }
 

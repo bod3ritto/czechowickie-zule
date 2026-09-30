@@ -50,7 +50,8 @@ export default function AboutPage() {
             <li>To nie jest ranking i nikt tu nikogo nie ocenia. Liczby opisują sieć, a nie ludzi.</li>
             <li>
               Prawdziwe osoby trafiają na mapę tylko za swoją zgodą i mogą w każdej chwili poprosić o zmianę lub usunięcie
-              wpisu.
+              wpisu: przycisk <strong className="text-fg">„Zgłoś zmianę”</strong> w panelu osoby lub relacji (zakładka „Usuń mnie z
+              mapy”). Nie trzeba zakładać konta ani podawać powodu.
             </li>
             <li>Żadnych adresów, numerów telefonów ani innych danych wrażliwych.</li>
           </ul>

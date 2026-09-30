@@ -52,6 +52,7 @@ Pliki w `supabase/migrations/` (uruchamiaj w kolejności nazw):
 - `…_person_categories.sql` — 10 dodatkowych kategorii osób (Świeżak, Osiedlowy, Imprezowicz, Kibic, Sportowiec, Działkowicz, Złota rączka, Biznesmen, Emigrant, Tajemniczy).
 - `…_triumwirat.sql` — typ relacji „Triumwirat” (dwie osoby z legendarnej trójki; trójka = trzy takie relacje).
 - `…_zwiazek.sql` — typ relacji „Związek” (para).
+- `…_change_requests.sql` — prośby o zmianę lub usunięcie: tabela `change_requests` (tylko dla adminów) i funkcja `submit_change_request()`.
 
 **Opcja A — SQL Editor:** wklej i uruchom pliki po kolei.
 **Opcja B — Supabase CLI:**
@@ -166,7 +167,7 @@ Publiczna strona pobiera dane jedną funkcją `public_dataset()` (`SECURITY INVO
 | `/admin/events`, `/new`, `/[id]` | wydarzenia z uczestnikami, relacjami („Jak się poznali?”), lokalizacją, zdjęciami |
 | `/admin/lore`, `/new`, `/[id]` | lore z typem, pewnością, źródłem i publikacją |
 | `/admin/locations` | miejsca z współrzędnymi (pod przyszłą mapę) |
-| `/admin/submissions` | zgłoszenia od odwiedzających (licznik w menu i baner na dashboardzie): Zatwierdź = publikacja, Odrzuć = usunięcie, Edytuj = zwykły edytor przed zatwierdzeniem |
+| `/admin/submissions` | zgłoszenia od odwiedzających (licznik w menu i baner na dashboardzie). Prośby o usunięcie z mapy na górze (przycisk „Usuń z mapy” usuwa osobę i zamyka prośbę), potem prośby o zmianę (Załatwione / Odrzuć / Edytuj), potem nowe osoby i relacje (Zatwierdź = publikacja, Odrzuć = usunięcie). |
 | `/admin/audit` | historia zmian |
 | `/admin/settings` | eksport JSON, import JSON z podglądem i ostrzeżeniami (scal / zastąp) |
 
@@ -178,7 +179,9 @@ Zdjęcia: przeciągnij i upuść → podgląd → upload z postępem bezpośredn
 
 Każdy może bez konta zaproponować osobę albo relację: przycisk **„Dodaj”** na mapie (lub **„Zgłoś znajomość”** w panelu osoby). Nowa osoba może od razu dostać relację z kimś z mapy. Zgłoszenie trafia do bazy jako **wersja robocza** z datą `submitted_at` (i opcjonalnym podpisem), więc publicznie nic się nie zmienia, dopóki administrator go nie zatwierdzi w `/admin/submissions`. Zatwierdzenie osoby publikuje ją razem z relacjami zgłoszonymi w tym samym formularzu.
 
-Formularz ma ukryte pole-pułapkę na boty. Limity w bazie chronią przed zalaniem kolejki; przy spamie od jednej osoby blokują na godzinę wszystkich, co przy małej społeczności jest akceptowalne.
+**Zgłoś zmianę** (panel osoby lub relacji) pozwala poprosić o poprawkę albo, w zakładce „Usuń mnie z mapy”, o usunięcie osoby. Prośba nic nie zmienia na mapie: trafia do osobnej tabeli `change_requests`, której odwiedzający nie mogą czytać, i czeka na administratora. Można zostawić kontakt, jeśli ktoś chce odpowiedź. Przy pierwszym wejściu na mapę karta powitalna informuje, że osoba, która nie zgadza się z informacjami na grafie, może zgłosić usunięcie siebie (z przyciskiem prowadzącym do formularza).
+
+Formularze mają ukryte pole-pułapkę na boty. Limity w bazie chronią przed zalaniem kolejki; przy spamie od jednej osoby blokują na godzinę wszystkich, co przy małej społeczności jest akceptowalne.
 
 ## Architektura
 
