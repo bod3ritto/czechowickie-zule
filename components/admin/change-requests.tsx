@@ -6,6 +6,7 @@ import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
 import { formatDate } from "@/components/admin/common/layout";
 import { useConfirm } from "@/components/admin/providers/confirm";
+import { useCanDelete } from "@/components/admin/providers/admin-data";
 import { useServerAction } from "@/components/admin/hooks/use-server-action";
 import { closeChangeRequest, removePersonForRequest } from "@/lib/actions/review";
 import type { ChangeRequestRow } from "@/lib/db/database.types";
@@ -15,6 +16,7 @@ import { countLabel } from "@/lib/format";
 export function ChangeRequests({ open, closed }: { open: ChangeRequestRow[]; closed: ChangeRequestRow[] }) {
   const { run, pending } = useServerAction();
   const confirm = useConfirm();
+  const isAdmin = useCanDelete();
   const removals = open.filter((r) => r.kind === "removal");
   const corrections = open.filter((r) => r.kind === "correction");
 
@@ -50,31 +52,40 @@ export function ChangeRequests({ open, closed }: { open: ChangeRequestRow[]; clo
           <p className="mt-0.5 text-xs text-muted-foreground">
             {formatDate(r.created_at, true)}
             {r.submitted_by && <> · od: {r.submitted_by}</>}
-            {r.contact && <> · kontakt: <span className="text-foreground">{r.contact}</span></>}
+            {r.contact && (
+              <>
+                {" "}
+                · kontakt: <span className="text-foreground">{r.contact}</span>
+              </>
+            )}
           </p>
           <p className="mt-2 whitespace-pre-line text-sm">{r.message}</p>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          {editHref && (
-            <Button size="sm" variant="ghost" asChild>
-              <Link href={editHref}>
-                <Pencil /> Edytuj
-              </Link>
+        {removal && !isAdmin ? (
+          <p className="shrink-0 text-xs text-muted-foreground sm:max-w-40 sm:text-right">Prośby o usunięcie obsługuje administrator.</p>
+        ) : (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {editHref && (
+              <Button size="sm" variant="ghost" asChild>
+                <Link href={editHref}>
+                  <Pencil /> Edytuj
+                </Link>
+              </Button>
+            )}
+            <Button size="sm" variant="outline" disabled={pending} onClick={() => void run(() => closeChangeRequest({ id: r.id, status: "rejected" }))}>
+              <X /> Odrzuć
             </Button>
-          )}
-          <Button size="sm" variant="outline" disabled={pending} onClick={() => void run(() => closeChangeRequest({ id: r.id, status: "rejected" }))}>
-            <X /> Odrzuć
-          </Button>
-          {removal && r.person_id ? (
-            <Button size="sm" variant="destructive" disabled={pending} onClick={() => void removePerson(r)}>
-              <Trash2 /> Usuń z mapy
-            </Button>
-          ) : (
-            <Button size="sm" disabled={pending} onClick={() => void run(() => closeChangeRequest({ id: r.id, status: "resolved" }))}>
-              <Check /> Załatwione
-            </Button>
-          )}
-        </div>
+            {removal && r.person_id ? (
+              <Button size="sm" variant="destructive" disabled={pending} onClick={() => void removePerson(r)}>
+                <Trash2 /> Usuń z mapy
+              </Button>
+            ) : (
+              <Button size="sm" disabled={pending} onClick={() => void run(() => closeChangeRequest({ id: r.id, status: "resolved" }))}>
+                <Check /> Załatwione
+              </Button>
+            )}
+          </div>
+        )}
       </article>
     );
   };
@@ -117,9 +128,11 @@ export function ChangeRequests({ open, closed }: { open: ChangeRequestRow[]; clo
                   {r.kind === "removal" ? "Usunięcie: " : ""}
                   {r.target_label} — <span className="text-muted-foreground">{r.message}</span>
                 </span>
-                <Button size="sm" variant="ghost" disabled={pending} onClick={() => void run(() => closeChangeRequest({ id: r.id, status: "open" }))}>
-                  <RotateCcw /> Otwórz ponownie
-                </Button>
+                {(isAdmin || r.kind === "correction") && (
+                  <Button size="sm" variant="ghost" disabled={pending} onClick={() => void run(() => closeChangeRequest({ id: r.id, status: "open" }))}>
+                    <RotateCcw /> Otwórz ponownie
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

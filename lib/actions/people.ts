@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { adminAction, deleteByIds, revalidatePublic } from "./admin-action";
+import { adminAction, adminOnlyAction, deleteByIds, revalidatePublic } from "./admin-action";
 import { fail, friendlyDbError, ok } from "./result";
 import { idsSchema } from "@/lib/validations/common";
 import { personSchema, statusChangeSchema, type PersonInput } from "@/lib/validations/entities";
@@ -77,7 +77,7 @@ export async function setPeopleStatus(input: z.input<typeof statusChangeSchema>)
   return setStatusAction(input);
 }
 
-const deleteAction = adminAction(idsSchema, async ({ ids }, { db }) => {
+const deleteAction = adminOnlyAction(idsSchema, async ({ ids }, { db }) => {
   const failed = await deleteByIds(db, "people", ids);
   if (failed) return failed;
   revalidatePublic();

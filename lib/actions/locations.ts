@@ -1,7 +1,7 @@
 "use server";
 
 import type { z } from "zod";
-import { adminAction, deleteByIds, revalidatePublic } from "./admin-action";
+import { adminAction, adminOnlyAction, deleteByIds, revalidatePublic } from "./admin-action";
 import { fail, friendlyDbError, ok } from "./result";
 import { idsSchema } from "@/lib/validations/common";
 import { locationSchema, type LocationInput } from "@/lib/validations/entities";
@@ -24,7 +24,7 @@ export async function saveLocation(input: LocationInput) {
   return saveAction(input);
 }
 
-const deleteAction = adminAction(idsSchema, async ({ ids }, { db }) => {
+const deleteAction = adminOnlyAction(idsSchema, async ({ ids }, { db }) => {
   const failed = await deleteByIds(db, "locations", ids);
   if (failed) return failed;
   revalidatePublic();

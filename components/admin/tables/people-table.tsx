@@ -16,6 +16,7 @@ import { EmptyState, formatDate } from "@/components/admin/common/layout";
 import { StatusBadge } from "@/components/admin/common/badges";
 import { PersonAvatar } from "@/components/person/person-avatar";
 import { useConfirm } from "@/components/admin/providers/confirm";
+import { useCanDelete } from "@/components/admin/providers/admin-data";
 import { useQuickAdd } from "@/components/admin/shell/quick-add";
 import { useServerAction } from "@/components/admin/hooks/use-server-action";
 import { useOptimisticStatus } from "@/components/admin/hooks/use-optimistic-status";
@@ -33,6 +34,7 @@ export function previewHref(path: string) {
 export function PeopleTable({ people }: { people: PersonListItem[] }) {
   const router = useRouter();
   const confirm = useConfirm();
+  const canDelete = useCanDelete();
   const quickAdd = useQuickAdd();
   const { run } = useServerAction();
   const [rows, setStatus] = useOptimisticStatus(people);
@@ -116,9 +118,11 @@ export function PeopleTable({ people }: { people: PersonListItem[] }) {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" variant="outline" className="text-destructive" onClick={() => void askDelete(rows.filter((r) => ids.includes(r.id))).then((ok) => ok && clear())}>
-            <Trash2 /> Usuń
-          </Button>
+          {canDelete && (
+            <Button size="sm" variant="outline" className="text-destructive" onClick={() => void askDelete(rows.filter((r) => ids.includes(r.id))).then((ok) => ok && clear())}>
+              <Trash2 /> Usuń
+            </Button>
+          )}
         </>
       )}
       rowActions={(p) => (
@@ -146,10 +150,14 @@ export function PeopleTable({ people }: { people: PersonListItem[] }) {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <StatusMenuItems status={p.status} onChange={(status) => void setStatus([p.id], status, setPeopleStatus)} />
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => void askDelete([p])}>
-              <Trash2 /> Usuń
-            </DropdownMenuItem>
+            {canDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => void askDelete([p])}>
+                  <Trash2 /> Usuń
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}

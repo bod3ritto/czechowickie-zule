@@ -6,25 +6,39 @@ import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
 import { formatDate } from "@/components/admin/common/layout";
 import { useConfirm } from "@/components/admin/providers/confirm";
+import { useCanDelete } from "@/components/admin/providers/admin-data";
 import { useServerAction } from "@/components/admin/hooks/use-server-action";
 import { approveSubmissions } from "@/lib/actions/review";
 import { deletePeople } from "@/lib/actions/people";
 import { deleteRelationships } from "@/lib/actions/relationships";
-import type { PendingPerson, PendingRelationship } from "@/lib/queries/admin";
-import { PERSON_CATEGORIES, RELATIONSHIP_TYPES } from "@/lib/relationship-types";
+import { deleteLore } from "@/lib/actions/lore";
+import { deleteEvents } from "@/lib/actions/events";
+import type { PendingPerson, PendingRelationship, PendingStory } from "@/lib/queries/admin";
+import { LORE_TYPE_LABEL, PERSON_CATEGORIES, RELATIONSHIP_TYPES } from "@/lib/relationship-types";
 import { countLabel } from "@/lib/format";
 
-export function SubmissionsQueue({ people, relationships }: { people: PendingPerson[]; relationships: PendingRelationship[] }) {
+export function SubmissionsQueue({
+  people,
+  relationships,
+  stories = [],
+}: {
+  people: PendingPerson[];
+  relationships: PendingRelationship[];
+  stories?: PendingStory[];
+}) {
   const { run, pending } = useServerAction();
   const confirm = useConfirm();
+  const canDelete = useCanDelete();
 
-  if (people.length + relationships.length === 0) return null;
+  if (people.length + relationships.length + stories.length === 0) return null;
 
   const approveAll = () =>
     run(() =>
       approveSubmissions({
         people: people.map((p) => p.id),
         relationships: [...people.flatMap((p) => p.relationships.map((r) => r.id)), ...relationships.map((r) => r.id)],
+        lore: stories.filter((s) => s.kind === "lore").map((s) => s.id),
+        events: stories.filter((s) => s.kind === "event").map((s) => s.id),
       }),
     );
 
@@ -38,7 +52,10 @@ export function SubmissionsQueue({ people, relationships }: { people: PendingPer
       confirmLabel: "Odrzuć",
       destructive: true,
     });
-    if (ok) await run(() => deletePeople({ ids: [p.id] }), { success: "Odrzucono zgłoszenie." });
+    if (ok)
+      await run(() => deletePeople({ ids: [p.id] }), {
+        success: "Odrzucono zgłoszenie.",
+      });
   };
 
   const rejectRelationship = async (r: PendingRelationship) => {
@@ -48,14 +65,35 @@ export function SubmissionsQueue({ people, relationships }: { people: PendingPer
       confirmLabel: "Odrzuć",
       destructive: true,
     });
-    if (ok) await run(() => deleteRelationships({ ids: [r.id] }), { success: "Odrzucono zgłoszenie." });
+    if (ok)
+      await run(() => deleteRelationships({ ids: [r.id] }), {
+        success: "Odrzucono zgłoszenie.",
+      });
+  };
+
+  const rejectStory = async (s: PendingStory) => {
+    const ok = await confirm({
+      title: s.kind === "lore" ? "Odrzucić zgłoszone lore?" : `Odrzucić wydarzenie „${s.title}”?`,
+      description: "Zgłoszenie zostanie usunięte.",
+      confirmLabel: "Odrzuć",
+      destructive: true,
+    });
+    if (ok) await run(() => (s.kind === "lore" ? deleteLore({ ids: [s.id] }) : deleteEvents({ ids: [s.id] })), { success: "Odrzucono zgłoszenie." });
   };
 
   return (
     <div className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-4 py-3">
         <p className="text-sm text-muted-foreground">
-          Czeka: {countLabel(people.length, "osoba", "osoby", "osób")}, {countLabel(relationships.length + people.reduce((n, p) => n + p.relationships.length, 0), "relacja", "relacje", "relacji")}
+          Czeka:{" "}
+          {[
+            [people.length, "osoba", "osoby", "osób"] as const,
+            [relationships.length + people.reduce((n, p) => n + p.relationships.length, 0), "relacja", "relacje", "relacji"] as const,
+            [stories.length, "historia", "historie", "historii"] as const,
+          ]
+            .filter(([count]) => count > 0)
+            .map(([count, one, few, many]) => countLabel(count, one, few, many))
+            .join(", ")}
         </p>
         <Button size="sm" variant="outline" disabled={pending} onClick={() => void approveAll()}>
           <Check /> Zatwierdź wszystkie
@@ -93,13 +131,22 @@ export function SubmissionsQueue({ people, relationships }: { people: PendingPer
                       <Pencil /> Edytuj
                     </Link>
                   </Button>
-                  <Button size="sm" variant="outline" className="text-destructive" disabled={pending} onClick={() => void rejectPerson(p)}>
-                    <X /> Odrzuć
-                  </Button>
+                  {canDelete && (
+                    <Button size="sm" variant="outline" className="text-destructive" disabled={pending} onClick={() => void rejectPerson(p)}>
+                      <X /> Odrzuć
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     disabled={pending}
-                    onClick={() => void run(() => approveSubmissions({ people: [p.id], relationships: p.relationships.map((r) => r.id) }))}
+                    onClick={() =>
+                      void run(() =>
+                        approveSubmissions({
+                          people: [p.id],
+                          relationships: p.relationships.map((r) => r.id),
+                        }),
+                      )
+                    }
                   >
                     <Check /> Zatwierdź
                   </Button>
@@ -132,10 +179,62 @@ export function SubmissionsQueue({ people, relationships }: { people: PendingPer
                     <Pencil /> Edytuj
                   </Link>
                 </Button>
-                <Button size="sm" variant="outline" className="text-destructive" disabled={pending} onClick={() => void rejectRelationship(r)}>
-                  <X /> Odrzuć
-                </Button>
+                {canDelete && (
+                  <Button size="sm" variant="outline" className="text-destructive" disabled={pending} onClick={() => void rejectRelationship(r)}>
+                    <X /> Odrzuć
+                  </Button>
+                )}
                 <Button size="sm" disabled={pending} onClick={() => void run(() => approveSubmissions({ relationships: [r.id] }))}>
+                  <Check /> Zatwierdź
+                </Button>
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
+
+      {stories.length > 0 && (
+        <section className="grid gap-3">
+          <h2 className="text-sm font-medium">Nowe lore i wydarzenia</h2>
+          {stories.map((s) => (
+            <article
+              key={s.id}
+              className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-start sm:justify-between"
+              aria-label={`Zgłoszenie: ${s.title ?? (s.text ?? "").slice(0, 40)}`}
+            >
+              <div className="min-w-0">
+                <h3 className="flex flex-wrap items-center gap-2 font-medium">
+                  {s.title ?? (s.kind === "lore" ? "Lore bez tytułu" : "Wydarzenie")}
+                  <Badge variant="outline">{s.kind === "lore" ? (s.loreType ? LORE_TYPE_LABEL[s.loreType] : "Lore") : "Wydarzenie"}</Badge>
+                  {s.year && <span className="text-xs font-normal text-muted-foreground">{s.year}</span>}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {formatDate(s.submitted_at, true)}
+                  {s.submitted_by && <> · od: {s.submitted_by}</>}
+                </p>
+                {s.text && <p className="mt-2 whitespace-pre-line text-sm">{s.text}</p>}
+                {s.people.length > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {s.kind === "lore" ? "Dotyczy" : "Uczestnicy"}: <span className="text-foreground">{s.people.join(", ")}</span>
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="ghost" asChild>
+                  <Link href={s.kind === "lore" ? `/admin/lore/${s.id}` : `/admin/events/${s.id}`}>
+                    <Pencil /> Edytuj
+                  </Link>
+                </Button>
+                {canDelete && (
+                  <Button size="sm" variant="outline" className="text-destructive" disabled={pending} onClick={() => void rejectStory(s)}>
+                    <X /> Odrzuć
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => void run(() => approveSubmissions(s.kind === "lore" ? { lore: [s.id] } : { events: [s.id] }))}
+                >
                   <Check /> Zatwierdź
                 </Button>
               </div>

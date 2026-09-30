@@ -27,19 +27,22 @@ const BOOTSTRAP = `
 
 export const ADMIN_ID = "00000000-0000-4000-8000-000000000001";
 export const USER_ID = "00000000-0000-4000-8000-000000000002";
+export const MODERATOR_ID = "00000000-0000-4000-8000-000000000003";
 
 export async function createTestDb({ seed = false } = {}): Promise<PGlite> {
   const db = new PGlite();
   await db.exec(BOOTSTRAP);
   // Storage migration needs Supabase's storage schema; everything else runs as in production.
-  for (const file of ["20260929000001_schema.sql", "20260930000001_submissions.sql", "20261001000001_person_categories.sql", "20261002000001_triumwirat.sql", "20261003000001_zwiazek.sql", "20261004000001_change_requests.sql"]) {
+  for (const file of ["20260929000001_schema.sql", "20260930000001_submissions.sql", "20261001000001_person_categories.sql", "20261002000001_triumwirat.sql", "20261003000001_zwiazek.sql", "20261004000001_change_requests.sql", "20261005000001_moderators.sql", "20261005000002_lore_event_submissions.sql"]) {
     await db.exec(readFileSync(resolve(__dirname, "../../supabase/migrations", file), "utf8"));
   }
   await db.exec(`
     insert into auth.users (id, email) values
       ('${ADMIN_ID}', 'admin@example.com'),
-      ('${USER_ID}', 'user@example.com');
+      ('${USER_ID}', 'user@example.com'),
+      ('${MODERATOR_ID}', 'mod@example.com');
     insert into public.admin_users (user_id, email) values ('${ADMIN_ID}', 'admin@example.com');
+    insert into public.admin_users (user_id, email, role) values ('${MODERATOR_ID}', 'mod@example.com', 'moderator');
   `);
   if (seed) {
     await db.exec(readFileSync(resolve(__dirname, "../../supabase/seed.sql"), "utf8"));
@@ -52,6 +55,7 @@ type Who = { role: "anon" } | { role: "authenticated"; id: string; email: string
 export const anon: Who = { role: "anon" };
 export const admin: Who = { role: "authenticated", id: ADMIN_ID, email: "admin@example.com" };
 export const regularUser: Who = { role: "authenticated", id: USER_ID, email: "user@example.com" };
+export const moderator: Who = { role: "authenticated", id: MODERATOR_ID, email: "mod@example.com" };
 
 /** Runs `fn` as the given API role, like a PostgREST request with that JWT. */
 export async function as<T>(db: PGlite, who: Who, fn: (tx: Transaction) => Promise<T>): Promise<T> {

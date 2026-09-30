@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { adminAction, revalidatePublic, type AdminDb } from "./admin-action";
+import { adminAction, adminOnlyAction, revalidatePublic, type AdminDb } from "./admin-action";
 import { fail, friendlyDbError, ok } from "./result";
 import { MEDIA_BUCKET, mediaPublicUrl } from "@/lib/env";
 import { MEDIA_KIND_VALUES } from "@/lib/db/enums";
@@ -120,7 +120,7 @@ export async function setPrimaryMedia(input: { mediaId: string; ownerType: "pers
   return primaryAction(input);
 }
 
-const deleteAction = adminAction(z.object({ mediaId: z.guid() }), async ({ mediaId }, { db }) => {
+const deleteAction = adminOnlyAction(z.object({ mediaId: z.guid() }), async ({ mediaId }, { db }) => {
   const { data: row } = await db.from("media").select("storage_path").eq("id", mediaId).single();
   if (!row) return fail("Nie znaleziono pliku.");
   const { error: storageError } = await db.storage.from(MEDIA_BUCKET).remove([row.storage_path]);

@@ -7,16 +7,16 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/admin", () => ({ getAdmin: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createSessionClient: vi.fn() }));
 
-const { adminAction } = await import("@/lib/actions/admin-action");
+const { adminAction, adminOnlyAction } = await import("@/lib/actions/admin-action");
 const { ok } = await import("@/lib/actions/result");
 const { decideAdminAccess, safeRedirectPath } = await import("@/lib/auth/policy");
 const { friendlyDbError } = await import("@/lib/actions/result");
 
 type Deps = Parameters<typeof adminAction>[2] & object;
 
-function deps(admin: { userId: string; email: string } | null): Deps {
+function deps(admin: { userId: string; email: string; role?: "admin" | "moderator" } | null): Deps {
   return {
-    getAdmin: async () => admin,
+    getAdmin: async () => (admin ? { role: "admin" as const, ...admin } : null),
     createDb: vi.fn(async () => ({}) as never),
   };
 }
@@ -77,6 +77,23 @@ describe("adminAction (every mutation goes through it)", () => {
     spy.mockRestore();
     expect(result.ok).toBe(false);
     expect(JSON.stringify(result)).not.toContain("relation");
+  });
+});
+
+describe("adminOnlyAction (deleting, import)", () => {
+  it("refuses moderators before touching the database", async () => {
+    const d = deps({ userId: "m1", email: "m@b.c", role: "moderator" });
+    const handler = vi.fn(async () => ok(undefined));
+    const result = await adminOnlyAction(schema, handler, d)({ firstName: "Marek" });
+    expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/Tylko administrator/) });
+    expect(handler).not.toHaveBeenCalled();
+    expect(d.createDb).not.toHaveBeenCalled();
+  });
+
+  it("lets admins through, and moderators through regular actions", async () => {
+    const handler = vi.fn(async () => ok(undefined));
+    expect(await adminOnlyAction(schema, handler, deps({ userId: "a1", email: "a@b.c", role: "admin" }))({ firstName: "M" })).toMatchObject({ ok: true });
+    expect(await adminAction(schema, handler, deps({ userId: "m1", email: "m@b.c", role: "moderator" }))({ firstName: "M" })).toMatchObject({ ok: true });
   });
 });
 

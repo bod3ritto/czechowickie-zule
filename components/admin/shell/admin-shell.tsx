@@ -36,7 +36,7 @@ import {
 import { Logo } from "@/components/ui/logo";
 import { signOut } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
-import { AdminDataProvider, type LocationOption } from "@/components/admin/providers/admin-data";
+import { AdminDataProvider, useAdminData, type LocationOption } from "@/components/admin/providers/admin-data";
 import { ConfirmProvider } from "@/components/admin/providers/confirm";
 import { UnsavedChangesProvider } from "@/components/admin/providers/unsaved-changes";
 import { QuickAddProvider, useQuickAdd, type QuickAddKind } from "./quick-add";
@@ -62,6 +62,9 @@ const SECONDARY = [
 
 function NavLinks({ onNavigate, pendingSubmissions = 0 }: { onNavigate?: () => void; pendingSubmissions?: number }) {
   const pathname = usePathname();
+  const { role } = useAdminData();
+  // Settings = import/export: admins only.
+  const secondary = role === "admin" ? SECONDARY : SECONDARY.filter((s) => s.href !== "/admin/settings");
   const item = ({ href, label, icon: Icon, exact, badge }: { href: string; label: string; icon: typeof Inbox; exact?: boolean; badge?: boolean }) => {
     const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
     return (
@@ -91,7 +94,7 @@ function NavLinks({ onNavigate, pendingSubmissions = 0 }: { onNavigate?: () => v
       <ul className="grid gap-0.5">{NAV.map(item)}</ul>
       <div className="mt-auto grid gap-0.5">
         <div className="mx-2.5 mb-2 border-t" />
-        <ul className="grid gap-0.5">{SECONDARY.map((s) => item({ ...s, exact: false }))}</ul>
+        <ul className="grid gap-0.5">{secondary.map((s) => item({ ...s, exact: false }))}</ul>
         <form action={signOut}>
           <button type="submit" className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground">
             <LogOut className="size-4" /> Wyloguj
@@ -103,11 +106,12 @@ function NavLinks({ onNavigate, pendingSubmissions = 0 }: { onNavigate?: () => v
 }
 
 function Brand() {
+  const { role } = useAdminData();
   return (
     <Link href="/admin" className="flex items-center gap-2">
       <Logo className="size-7" />
       <span className="text-sm font-semibold tracking-tight">Czechowickie Żule</span>
-      <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">admin</span>
+      <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">{role === "moderator" ? "moderator" : "admin"}</span>
     </Link>
   );
 }
@@ -119,6 +123,7 @@ function isTyping(target: EventTarget | null): boolean {
 
 function ShellChrome({ children, adminEmail, pendingSubmissions }: { children: ReactNode; adminEmail: string; pendingSubmissions: number }) {
   const quickAdd = useQuickAdd();
+  const { role } = useAdminData();
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
   const add = (kind: QuickAddKind) => quickAdd({ kind });
@@ -226,11 +231,13 @@ function ShellChrome({ children, adminEmail, pendingSubmissions }: { children: R
                     <ExternalLink /> Publiczna strona
                   </a>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/admin/settings">
-                    <Settings /> Ustawienia
-                  </Link>
-                </DropdownMenuItem>
+                {role === "admin" && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/settings">
+                      <Settings /> Ustawienia
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => void signOut()}>
                   <LogOut /> Wyloguj
@@ -253,6 +260,7 @@ export function AdminShell({
   locations,
   searchIndex,
   adminEmail,
+  role = "admin",
   pendingSubmissions = 0,
   children,
 }: {
@@ -260,12 +268,13 @@ export function AdminShell({
   locations: LocationOption[];
   searchIndex: SearchItem[];
   adminEmail: string;
+  role?: "admin" | "moderator";
   /** Public submissions waiting for review (badge in the sidebar). */
   pendingSubmissions?: number;
   children: ReactNode;
 }) {
   return (
-    <AdminDataProvider network={network} locations={locations} searchIndex={searchIndex} adminEmail={adminEmail}>
+    <AdminDataProvider network={network} locations={locations} searchIndex={searchIndex} adminEmail={adminEmail} role={role}>
       <TooltipProvider>
         <ConfirmProvider>
           <UnsavedChangesProvider>

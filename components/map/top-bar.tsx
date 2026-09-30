@@ -68,8 +68,8 @@ export function TopBar() {
             size="md"
             variant="solid"
             onClick={() => map.openSubmit("person")}
-            aria-label="Dodaj osobę lub relację"
-            title="Zaproponuj osobę lub relację — pojawi się po zatwierdzeniu"
+            aria-label="Dodaj na mapę"
+            title="Zaproponuj osobę, relację, lore albo wydarzenie — pojawi się po zatwierdzeniu"
             className="px-0 w-9 md:w-auto md:px-3"
           >
             <Plus className="size-4" />

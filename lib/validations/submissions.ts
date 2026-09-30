@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PERSON_CATEGORY_VALUES, RELATIONSHIP_TYPE_VALUES } from "@/lib/db/enums";
+import { LORE_TYPE_VALUES, PERSON_CATEGORY_VALUES, RELATIONSHIP_TYPE_VALUES } from "@/lib/db/enums";
 import { optText, optYear } from "./common";
 
 /**
@@ -39,6 +39,31 @@ export const relationshipSubmissionSchema = z
     website: honeypot,
   })
   .refine((v) => v.personA !== v.personB, { message: "Wybierz dwie różne osoby.", path: ["personB"] });
+
+const pastYear = optYear.refine((y) => y === null || y <= new Date().getFullYear(), "Ten rok jeszcze nie nadszedł.");
+const peopleRefs = z.array(personRef).max(20, "Maksymalnie 20 osób.").default([]);
+
+export const loreSubmissionSchema = z.object({
+  title: optText(160),
+  content: z.string().trim().min(1, "Treść jest wymagana.").max(2000, "Maksymalnie 2000 znaków."),
+  loreType: z.enum(LORE_TYPE_VALUES).default("ciekawostka"),
+  year: pastYear,
+  people: peopleRefs,
+  submittedBy: optText(80),
+  website: honeypot,
+});
+
+export const eventSubmissionSchema = z.object({
+  title: z.string().trim().min(1, "Tytuł jest wymagany.").max(200, "Maksymalnie 200 znaków."),
+  description: optText(2000),
+  year: pastYear,
+  people: peopleRefs,
+  submittedBy: optText(80),
+  website: honeypot,
+});
+
+export type LoreSubmissionInput = z.input<typeof loreSubmissionSchema>;
+export type EventSubmissionInput = z.input<typeof eventSubmissionSchema>;
 
 /** "Zgłoś zmianę": a correction to a person/relationship, or a removal request for a person. */
 export const changeRequestSchema = z

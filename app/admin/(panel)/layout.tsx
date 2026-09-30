@@ -30,6 +30,7 @@ export default async function PanelLayout({ children }: LayoutProps<"/admin">) {
       locations={locations.map((l) => ({ id: l.id, name: l.name }))}
       searchIndex={searchIndex}
       adminEmail={admin.email}
+      role={admin.role}
       pendingSubmissions={pendingSubmissions}
     >
       {children}

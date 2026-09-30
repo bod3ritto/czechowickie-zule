@@ -12,9 +12,11 @@ import { useConfirm } from "@/components/admin/providers/confirm";
 import { useServerAction } from "@/components/admin/hooks/use-server-action";
 import { deleteLocations } from "@/lib/actions/locations";
 import type { LocationRow } from "@/lib/db/database.types";
+import { useCanDelete } from "@/components/admin/providers/admin-data";
 
 export function LocationsManager({ locations, usage }: { locations: LocationRow[]; usage: Record<string, number> }) {
   const confirm = useConfirm();
+  const canDelete = useCanDelete();
   const { run } = useServerAction();
   const [editing, setEditing] = useState<LocationRow | "new" | null>(null);
 
@@ -79,9 +81,11 @@ export function LocationsManager({ locations, usage }: { locations: LocationRow[
               <DropdownMenuItem onSelect={() => setEditing(l)}>
                 <Pencil /> Edytuj
               </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onSelect={() => void remove(l)}>
-                <Trash2 /> Usuń
-              </DropdownMenuItem>
+              {canDelete && (
+                <DropdownMenuItem variant="destructive" onSelect={() => void remove(l)}>
+                  <Trash2 /> Usuń
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

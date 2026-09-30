@@ -26,6 +26,7 @@ import type { EventRow, LoreRow, PersonRow, RelationshipRow } from "@/lib/db/dat
 import type { MediaItem } from "@/lib/queries/admin";
 import { RelationshipOverview } from "./relationship-overview";
 import { EventTimeline } from "./event-timeline";
+import { useCanDelete } from "@/components/admin/providers/admin-data";
 
 const TABS = ["profil", "relacje", "wydarzenia", "lore", "media", "podglad"] as const;
 type Tab = (typeof TABS)[number];
@@ -60,6 +61,7 @@ export function PersonEditor({
   }, null);
   const latestEvent = events.reduce<number | null>((max, e) => (e.year !== null && (max === null || e.year > max) ? e.year : max), null);
 
+  const canDelete = useCanDelete();
   const remove = async () => {
     const ok = await confirm({
       title: `Czy na pewno chcesz usunąć: ${person.first_name}?`,
@@ -111,10 +113,14 @@ export function PersonEditor({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <StatusMenuItems status={person.status} onChange={(status) => void run(() => setPeopleStatus({ ids: [person.id], status }))} />
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={() => void remove()}>
-                <Trash2 /> Usuń
-              </DropdownMenuItem>
+              {canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onSelect={() => void remove()}>
+                    <Trash2 /> Usuń
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

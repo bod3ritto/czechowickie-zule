@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { adminAction, deleteByIds, revalidatePublic } from "./admin-action";
+import { adminAction, adminOnlyAction, deleteByIds, revalidatePublic } from "./admin-action";
 import { fail, friendlyDbError, ok } from "./result";
 import { STATUS_MESSAGE } from "./status-messages";
 import { idsSchema } from "@/lib/validations/common";
@@ -88,7 +88,7 @@ export async function setRelationshipsType(input: { ids: string[]; type: string 
   return typeAction(input as { ids: string[]; type: (typeof RELATIONSHIP_TYPE_VALUES)[number] });
 }
 
-const deleteAction = adminAction(idsSchema, async ({ ids }, { db }) => {
+const deleteAction = adminOnlyAction(idsSchema, async ({ ids }, { db }) => {
   const failed = await deleteByIds(db, "relationships", ids);
   if (failed) return failed;
   revalidatePublic();

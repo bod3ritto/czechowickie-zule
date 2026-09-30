@@ -12,6 +12,7 @@ import { deleteRelationships, setRelationshipsStatus } from "@/lib/actions/relat
 import { deleteEvents, setEventsStatus } from "@/lib/actions/events";
 import { deleteLore, setLoreStatus } from "@/lib/actions/lore";
 import type { Status } from "@/lib/db/enums";
+import { useCanDelete } from "@/components/admin/providers/admin-data";
 
 const KINDS = {
   relationship: { setStatus: setRelationshipsStatus, remove: deleteRelationships, list: "/admin/relationships", title: "Usunąć relację?" },
@@ -33,6 +34,7 @@ export function EntityHeaderActions({
 }) {
   const router = useRouter();
   const confirm = useConfirm();
+  const canDelete = useCanDelete();
   const { run } = useServerAction();
   const k = KINDS[kind];
   return (
@@ -57,16 +59,20 @@ export function EntityHeaderActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <StatusMenuItems status={status} onChange={(s) => void run(() => k.setStatus({ ids: [id], status: s }))} />
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={async () => {
-              const ok = await confirm({ title: k.title, description: "Tego nie da się cofnąć. Rozważ archiwizację.", confirmLabel: "Usuń", destructive: true });
-              if (ok) await run(() => k.remove({ ids: [id] }), { onSuccess: () => router.push(k.list) });
-            }}
-          >
-            <Trash2 /> Usuń
-          </DropdownMenuItem>
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={async () => {
+                  const ok = await confirm({ title: k.title, description: "Tego nie da się cofnąć. Rozważ archiwizację.", confirmLabel: "Usuń", destructive: true });
+                  if (ok) await run(() => k.remove({ ids: [id] }), { onSuccess: () => router.push(k.list) });
+                }}
+              >
+                <Trash2 /> Usuń
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </>

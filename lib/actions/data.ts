@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { adminAction, revalidatePublic } from "./admin-action";
+import { adminOnlyAction, revalidatePublic } from "./admin-action";
 import { fail, ok } from "./result";
 import { importSchema, type ImportPayload } from "@/lib/validations/import";
 import type { Json } from "@/lib/db/database.types";
@@ -11,7 +11,7 @@ import type { Json } from "@/lib/db/database.types";
  * either everything is imported or nothing is. The payload is validated again
  * here — the preview in the browser is only a convenience.
  */
-const importAction = adminAction(
+const importAction = adminOnlyAction(
   z.object({
     payload: importSchema,
     mode: z.enum(["merge", "replace"]),
