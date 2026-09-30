@@ -424,14 +424,16 @@ export async function listSubmissions(): Promise<{ people: PendingPerson[]; rela
 
 export const countSubmissions = cache(async (): Promise<number> => {
   const db = await createSessionClient();
-  const pending = (table: "people" | "relationships") =>
+  const pending = (table: "people" | "relationships" | "lore" | "events") =>
     db.from(table).select("id", { count: "exact", head: true }).eq("status", "draft").not("submitted_at", "is", null);
-  const [people, rels, requests] = await Promise.all([
+  const [people, rels, lore, events, requests] = await Promise.all([
     pending("people"),
     pending("relationships"),
+    pending("lore"),
+    pending("events"),
     db.from("change_requests").select("id", { count: "exact", head: true }).eq("status", "open"),
   ]);
-  return (people.count ?? 0) + (rels.count ?? 0) + (requests.count ?? 0);
+  return (people.count ?? 0) + (rels.count ?? 0) + (lore.count ?? 0) + (events.count ?? 0) + (requests.count ?? 0);
 });
 
 /** Open change requests (oldest first: first come, first served) + the latest closed ones. */
@@ -442,4 +444,66 @@ export async function listChangeRequests(): Promise<{ open: ChangeRequestRow[]; 
     db.from("change_requests").select("*").neq("status", "open").order("resolved_at", { ascending: false }).limit(20),
   ]);
   return { open: must(open, "prośby o zmianę"), closed: must(closed, "załatwione prośby") };
+}
+
+/** Lore and events submitted by visitors, with the names of the people they mention. */
+export interface PendingStory {
+  id: string;
+  kind: "lore" | "event";
+  title: string | null;
+  text: string | null;
+  loreType: LoreRow["lore_type"] | null;
+  year: number | null;
+  submitted_at: string;
+  submitted_by: string | null;
+  people: string[];
+}
+
+export async function listSubmittedStories(): Promise<PendingStory[]> {
+  const db = await createSessionClient();
+  const [lore, events, lorePeople, eventPeople] = await Promise.all([
+    db.from("lore").select("*").eq("status", "draft").not("submitted_at", "is", null).order("submitted_at", { ascending: false }),
+    db.from("events").select("*").eq("status", "draft").not("submitted_at", "is", null).order("submitted_at", { ascending: false }),
+    db.from("lore_people").select("*"),
+    db.from("event_people").select("*"),
+  ]);
+  // Before the lore/events submissions migration the columns don't exist: show nothing instead of failing.
+  if (lore.error || events.error) {
+    console.error("[admin query] zgłoszone lore/wydarzenia:", (lore.error ?? events.error)?.message);
+    return [];
+  }
+  const names = new Map((await getNetwork()).people.map((p) => [p.id, p.nickname && p.nickname !== p.name ? `${p.name} „${p.nickname}”` : p.name]));
+  const group = (links: { owner: string; person_id: string }[]) => {
+    const out = new Map<string, string[]>();
+    for (const l of links) out.set(l.owner, [...(out.get(l.owner) ?? []), names.get(l.person_id) ?? "?"]);
+    return out;
+  };
+  const loreNames = group((lorePeople.data ?? []).map((l) => ({ owner: l.lore_id, person_id: l.person_id })));
+  const eventNames = group((eventPeople.data ?? []).map((l) => ({ owner: l.event_id, person_id: l.person_id })));
+
+  const stories: PendingStory[] = [
+    ...(lore.data ?? []).map((l) => ({
+      id: l.id,
+      kind: "lore" as const,
+      title: l.title,
+      text: l.content,
+      loreType: l.lore_type,
+      year: l.year,
+      submitted_at: l.submitted_at!,
+      submitted_by: l.submitted_by,
+      people: loreNames.get(l.id) ?? [],
+    })),
+    ...(events.data ?? []).map((e) => ({
+      id: e.id,
+      kind: "event" as const,
+      title: e.title,
+      text: e.description,
+      loreType: null,
+      year: e.year,
+      submitted_at: e.submitted_at!,
+      submitted_by: e.submitted_by,
+      people: eventNames.get(e.id) ?? [],
+    })),
+  ];
+  return stories.sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
 }

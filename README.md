@@ -53,6 +53,8 @@ Pliki w `supabase/migrations/` (uruchamiaj w kolejności nazw):
 - `…_triumwirat.sql` — typ relacji „Triumwirat” (dwie osoby z legendarnej trójki; trójka = trzy takie relacje).
 - `…_zwiazek.sql` — typ relacji „Związek” (para).
 - `…_change_requests.sql` — prośby o zmianę lub usunięcie: tabela `change_requests` (tylko dla adminów) i funkcja `submit_change_request()`.
+- `…_moderators.sql` — rola moderatora (`admin_users.role`): RLS pozwala mu dodawać i edytować, ale nie usuwać.
+- `…_lore_event_submissions.sql` — zgłaszanie lore i wydarzeń przez odwiedzających (`submit_lore()`, `submit_event()`).
 
 **Opcja A — SQL Editor:** wklej i uruchom pliki po kolei.
 **Opcja B — Supabase CLI:**
@@ -85,7 +87,16 @@ select id, email from auth.users where email = 'twoj@email.pl';
 
 3. Zaloguj się na `/admin/login`.
 
-Kolejnych adminów dodajesz tak samo. Odebranie uprawnień: `delete from public.admin_users where email = '…';`
+Kolejnych adminów dodajesz tak samo.
+
+**Moderator** dodaje, edytuje i publikuje wpisy oraz zatwierdza zgłoszenia, ale niczego nie usuwa (ani odrzuconych zgłoszeń, ani zdjęć), nie robi importu i nie obsługuje próśb o usunięcie z mapy. Ograniczenia pilnuje baza (RLS), nie tylko interfejs. Dodanie moderatora (po utworzeniu użytkownika w Auth):
+
+```sql
+insert into public.admin_users (user_id, email, role)
+select id, email, 'moderator' from auth.users where email = 'moderator@email.pl';
+```
+
+Zmiana roli: `update public.admin_users set role = 'admin' where email = '…';` Odebranie uprawnień: `delete from public.admin_users where email = '…';`
 
 ## 7. Uruchomienie
 
@@ -177,7 +188,7 @@ Zdjęcia: przeciągnij i upuść → podgląd → upload z postępem bezpośredn
 
 ## Zgłoszenia od odwiedzających
 
-Każdy może bez konta zaproponować osobę albo relację: przycisk **„Dodaj”** na mapie (lub **„Zgłoś znajomość”** w panelu osoby). Nowa osoba może od razu dostać relację z kimś z mapy. Zgłoszenie trafia do bazy jako **wersja robocza** z datą `submitted_at` (i opcjonalnym podpisem), więc publicznie nic się nie zmienia, dopóki administrator go nie zatwierdzi w `/admin/submissions`. Zatwierdzenie osoby publikuje ją razem z relacjami zgłoszonymi w tym samym formularzu.
+Każdy może bez konta zaproponować osobę, relację, lore albo wydarzenie: przycisk **„Dodaj”** na mapie (lub **„Zgłoś znajomość”** w panelu osoby). Nowa osoba może od razu dostać relację z kimś z mapy. Zgłoszenie trafia do bazy jako **wersja robocza** z datą `submitted_at` (i opcjonalnym podpisem), więc publicznie nic się nie zmienia, dopóki administrator go nie zatwierdzi w `/admin/submissions`. Zatwierdzenie osoby publikuje ją razem z relacjami zgłoszonymi w tym samym formularzu.
 
 **Zgłoś zmianę** (panel osoby lub relacji) pozwala poprosić o poprawkę albo, w zakładce „Usuń mnie z mapy”, o usunięcie osoby. Prośba nic nie zmienia na mapie: trafia do osobnej tabeli `change_requests`, której odwiedzający nie mogą czytać, i czeka na administratora. Można zostawić kontakt, jeśli ktoś chce odpowiedź. Przy pierwszym wejściu na mapę karta powitalna informuje, że osoba, która nie zgadza się z informacjami na grafie, może zgłosić usunięcie siebie (z przyciskiem prowadzącym do formularza).
 

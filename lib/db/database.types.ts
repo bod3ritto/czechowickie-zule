@@ -99,6 +99,7 @@ export type EventRow = {
   source_type: SourceType;
   source_note: string | null;
 } & Publishable &
+  Submittable &
   Timestamps;
 
 export type LoreRow = {
@@ -111,6 +112,7 @@ export type LoreRow = {
   source_type: SourceType;
   source_note: string | null;
 } & Publishable &
+  Submittable &
   Timestamps;
 
 export type MediaRow = {
@@ -164,7 +166,8 @@ export type ChangeRequestRow = {
 export type EventPersonRow = { event_id: string; person_id: string };
 export type EventRelationshipRow = { event_id: string; relationship_id: string };
 export type LorePersonRow = { lore_id: string; person_id: string };
-export type AdminUserRow = { user_id: string; email: string; created_at: string };
+/** `role` exists once *_moderators.sql is applied; treat a missing value as "admin". */
+export type AdminUserRow = { user_id: string; email: string; created_at: string; role?: "admin" | "moderator" };
 
 export interface Database {
   public: {
@@ -185,6 +188,7 @@ export interface Database {
     Views: Record<string, never>;
     Functions: {
       is_admin: { Args: Record<string, never>; Returns: boolean };
+      is_staff: { Args: Record<string, never>; Returns: boolean };
       public_dataset: { Args: { include_drafts?: boolean }; Returns: Json };
       admin_import: { Args: { payload: Json; mode?: string }; Returns: Json };
       submit_person: {
@@ -207,6 +211,27 @@ export interface Database {
           person?: string | null;
           relationship?: string | null;
           contact?: string | null;
+          submitted_by?: string | null;
+        };
+        Returns: Json;
+      };
+      submit_lore: {
+        Args: {
+          content: string;
+          title?: string | null;
+          lore_type?: LoreType;
+          year?: number | null;
+          person_slugs?: string[];
+          submitted_by?: string | null;
+        };
+        Returns: Json;
+      };
+      submit_event: {
+        Args: {
+          title: string;
+          description?: string | null;
+          year?: number | null;
+          person_slugs?: string[];
           submitted_by?: string | null;
         };
         Returns: Json;

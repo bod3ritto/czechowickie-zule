@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
-import { admin, anon, createTestDb, regularUser } from "./harness";
+import { admin, anon, createTestDb, moderator, regularUser } from "./harness";
 import { shimClient } from "./postgrest-shim";
 
 /**
@@ -37,7 +37,10 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/auth/admin", () => ({
   getAdmin: async () => {
     const who = state.who as { role: string; id?: string; email?: string };
-    return who.role === "authenticated" && who.id === "00000000-0000-4000-8000-000000000001" ? { userId: who.id, email: who.email } : null;
+    if (who.role !== "authenticated") return null;
+    if (who.id === "00000000-0000-4000-8000-000000000001") return { userId: who.id, email: who.email, role: "admin" };
+    if (who.id === "00000000-0000-4000-8000-000000000003") return { userId: who.id, email: who.email, role: "moderator" };
+    return null;
   },
 }));
 
@@ -46,9 +49,10 @@ import { deleteRelationships, saveRelationship, setRelationshipsStatus, setRelat
 import { deleteLore, saveLore, setLoreStatus } from "@/lib/actions/lore";
 import { deleteEvents, saveEvent, setEventsStatus } from "@/lib/actions/events";
 import { deleteLocations, saveLocation } from "@/lib/actions/locations";
-import { submitChangeRequest, submitPerson, submitRelationship } from "@/lib/actions/submissions";
+import { importData } from "@/lib/actions/data";
+import { submitChangeRequest, submitEvent, submitLore, submitPerson, submitRelationship } from "@/lib/actions/submissions";
 import { approveSubmissions, closeChangeRequest, removePersonForRequest } from "@/lib/actions/review";
-import { countSubmissions, listChangeRequests, listSubmissions } from "@/lib/queries/admin";
+import { countSubmissions, listChangeRequests, listSubmissions, listSubmittedStories } from "@/lib/queries/admin";
 import { exportAll, getDashboard, getEventDetail, getLoreDetail, getPersonDetail, getRelationshipDetail, getSearchIndex, listAudit, listEvents, listLocations, listLore, listPeople, listRelationships } from "@/lib/queries/admin";
 
 let db: PGlite;
@@ -122,12 +126,12 @@ describe("deletes that remove nothing", () => {
     // Session is a valid admin for the action layer but not in admin_users for Postgres.
     const id = await idOfSlug("kuba");
     state.who = { role: "authenticated", id: "00000000-0000-4000-8000-000000000001", email: "admin@example.com" };
-    await db.exec("delete from public.admin_users");
+    await db.exec("delete from public.admin_users where role = 'admin'");
     try {
       expect(await deletePeople({ ids: [id] })).toMatchObject({ ok: false });
       expect(await count("people", "slug = 'kuba'")).toBe(1);
     } finally {
-      await db.exec("insert into public.admin_users (user_id, email) values ('00000000-0000-4000-8000-000000000001', 'admin@example.com')");
+      await db.exec("insert into public.admin_users (user_id, email, role) values ('00000000-0000-4000-8000-000000000001', 'admin@example.com', 'admin')");
     }
   });
 });
@@ -391,6 +395,79 @@ describe("change requests → admin", () => {
     const { closed } = await listChangeRequests();
     state.who = anon;
     expect(await closeChangeRequest({ id: closed[0].id, status: "open" })).toMatchObject({ ok: false });
+  });
+});
+
+describe("lore and event submissions → admin", () => {
+  it("a visitor submits lore and an event; admin sees and approves them", async () => {
+    state.who = anon;
+    expectOk(await submitLore({ content: "Podobno Seba ma najlepszy głośnik", loreType: "plotka", year: "2020", people: ["seba"], submittedBy: "Ktoś" }));
+    expectOk(await submitEvent({ title: "Grill nad Wisłą", description: "Było zimno", year: "2021", people: ["seba", "damian"] }));
+    expect(await submitLore({ content: "" })).toMatchObject({ ok: false, fieldErrors: { content: expect.any(String) } });
+    expect(await submitEvent({ title: "x", year: "2999" })).toMatchObject({ ok: false, fieldErrors: { year: expect.any(String) } });
+
+    state.who = admin;
+    const stories = await listSubmittedStories();
+    const lore = stories.find((s) => s.kind === "lore" && s.text?.includes("głośnik"))!;
+    const event = stories.find((s) => s.kind === "event" && s.title === "Grill nad Wisłą")!;
+    expect(lore).toMatchObject({ loreType: "plotka", year: 2020, submitted_by: "Ktoś", people: ["Seba"] });
+    expect(event.people).toHaveLength(2);
+
+    expectOk(await approveSubmissions({ lore: [lore.id], events: [event.id] }));
+    expect(await count("lore", `id = '${lore.id}' and status = 'published'`)).toBe(1);
+    expect(await count("events", `id = '${event.id}' and status = 'published'`)).toBe(1);
+    expect((await listSubmittedStories()).find((s) => s.id === lore.id)).toBeUndefined();
+  });
+});
+
+describe("moderator", () => {
+  it("adds and edits content, and approves submissions", async () => {
+    state.who = moderator;
+    const r = await savePerson(personInput({ slug: "od-moderatora" }));
+    expectOk(r);
+    expectOk(await savePerson(personInput({ id: r.data.id, slug: "od-moderatora", firstName: "Poprawiony", status: "published" })));
+    expectOk(await saveLore({ content: "Od moderatora", loreType: "plotka", confidence: "rumor", sourceType: "unknown", people: [r.data.id], status: "draft" }));
+    expectOk(await setPeopleStatus({ ids: [r.data.id], status: "archived" }));
+
+    state.who = anon;
+    expectOk(await submitLore({ content: "Do zatwierdzenia przez moderatora" }));
+    state.who = moderator;
+    const story = (await listSubmittedStories()).find((s) => s.text === "Do zatwierdzenia przez moderatora")!;
+    expectOk(await approveSubmissions({ lore: [story.id] }));
+  });
+
+  it("cannot delete anything or import", async () => {
+    state.who = moderator;
+    const id = await idOfSlug("od-moderatora");
+    const lore = (await db.query<{ id: string }>("select id from public.lore limit 1")).rows[0].id;
+    const rel = (await db.query<{ id: string }>("select id from public.relationships limit 1")).rows[0].id;
+    const ev = (await db.query<{ id: string }>("select id from public.events limit 1")).rows[0].id;
+    const loc = (await db.query<{ id: string }>("select id from public.locations limit 1")).rows[0].id;
+    for (const r of [
+      await deletePeople({ ids: [id] }),
+      await deleteRelationships({ ids: [rel] }),
+      await deleteLore({ ids: [lore] }),
+      await deleteEvents({ ids: [ev] }),
+      await deleteLocations({ ids: [loc] }),
+      await importData({ payload: {}, mode: "merge" } as never),
+    ]) {
+      expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/Tylko administrator/) });
+    }
+    expect(await count("people", `id = '${id}'`)).toBe(1);
+  });
+
+  it("handles corrections but not removal requests", async () => {
+    state.who = anon;
+    expectOk(await submitChangeRequest({ kind: "correction", person: "seba", message: "Popraw ksywkę" }));
+    expectOk(await submitChangeRequest({ kind: "removal", person: "seba" }));
+    state.who = moderator;
+    const { open } = await listChangeRequests();
+    const correction = open.find((r) => r.kind === "correction" && r.message === "Popraw ksywkę")!;
+    const removal = open.find((r) => r.kind === "removal" && r.target_label === "Seba")!;
+    expectOk(await closeChangeRequest({ id: correction.id, status: "resolved" }));
+    expect(await closeChangeRequest({ id: removal.id, status: "rejected" })).toMatchObject({ ok: false });
+    expect(await removePersonForRequest({ id: removal.id })).toMatchObject({ ok: false });
+    expect(await count("people", "slug = 'seba'")).toBe(1);
   });
 });
 

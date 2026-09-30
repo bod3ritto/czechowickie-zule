@@ -31,10 +31,12 @@ export function adminAction<S extends z.ZodType, T>(
   schema: S,
   handler: (input: z.output<S>, ctx: AdminContext) => Promise<ActionResult<T>>,
   deps: AdminActionDeps = defaultDeps,
+  options: { adminOnly?: boolean } = {},
 ) {
   return async (raw: z.input<S>): Promise<ActionResult<T>> => {
     const admin = await deps.getAdmin();
     if (!admin) return fail("Brak uprawnień. Zaloguj się ponownie jako administrator.");
+    if (options.adminOnly && admin.role !== "admin") return fail(ADMIN_ONLY);
 
     const parsed = schema.safeParse(raw);
     if (!parsed.success) return fail("Popraw zaznaczone pola.", zodFieldErrors(parsed.error));
@@ -46,6 +48,20 @@ export function adminAction<S extends z.ZodType, T>(
       return fail("Coś poszło nie tak. Spróbuj ponownie.");
     }
   };
+}
+
+const ADMIN_ONLY = "Tylko administrator może to zrobić. Jako moderator możesz dodawać i edytować wpisy (także archiwizować), ale nie usuwać.";
+
+/**
+ * Same as adminAction, but moderators are refused before anything runs
+ * (deletions, import). RLS refuses them too; this gives a clear message.
+ */
+export function adminOnlyAction<S extends z.ZodType, T>(
+  schema: S,
+  handler: (input: z.output<S>, ctx: AdminContext) => Promise<ActionResult<T>>,
+  deps: AdminActionDeps = defaultDeps,
+) {
+  return adminAction(schema, handler, deps, { adminOnly: true });
 }
 
 /** Public pages are static; refresh them after content changes. */

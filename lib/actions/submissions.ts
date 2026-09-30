@@ -4,10 +4,14 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createPublicClient } from "@/lib/supabase/server";
 import {
   changeRequestSchema,
+  eventSubmissionSchema,
+  loreSubmissionSchema,
   personSubmissionSchema,
   relationshipSubmissionSchema,
   submissionErrorMessage,
   type ChangeRequestInput,
+  type EventSubmissionInput,
+  type LoreSubmissionInput,
   type PersonSubmissionInput,
   type RelationshipSubmissionInput,
 } from "@/lib/validations/submissions";
@@ -93,4 +97,47 @@ export async function submitChangeRequest(input: ChangeRequestInput): Promise<Ac
     return fail(submissionErrorMessage(error.message));
   }
   return ok(undefined, thanks);
+}
+
+export async function submitLore(input: LoreSubmissionInput): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) return fail(UNAVAILABLE);
+  const parsed = loreSubmissionSchema.safeParse(input);
+  if (!parsed.success) return fail("Popraw zaznaczone pola.", zodFieldErrors(parsed.error));
+  const v = parsed.data;
+  if (v.website) return ok(undefined, THANKS);
+
+  const { error } = await createPublicClient().rpc("submit_lore", {
+    content: v.content,
+    title: v.title,
+    lore_type: v.loreType,
+    year: v.year,
+    person_slugs: v.people,
+    submitted_by: v.submittedBy,
+  });
+  if (error) {
+    console.error("[submission] lore:", error.message);
+    return fail(submissionErrorMessage(error.message));
+  }
+  return ok(undefined, THANKS);
+}
+
+export async function submitEvent(input: EventSubmissionInput): Promise<ActionResult> {
+  if (!isSupabaseConfigured()) return fail(UNAVAILABLE);
+  const parsed = eventSubmissionSchema.safeParse(input);
+  if (!parsed.success) return fail("Popraw zaznaczone pola.", zodFieldErrors(parsed.error));
+  const v = parsed.data;
+  if (v.website) return ok(undefined, THANKS);
+
+  const { error } = await createPublicClient().rpc("submit_event", {
+    title: v.title,
+    description: v.description,
+    year: v.year,
+    person_slugs: v.people,
+    submitted_by: v.submittedBy,
+  });
+  if (error) {
+    console.error("[submission] event:", error.message);
+    return fail(submissionErrorMessage(error.message));
+  }
+  return ok(undefined, THANKS);
 }

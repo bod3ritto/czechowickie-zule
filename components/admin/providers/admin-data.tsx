@@ -15,6 +15,8 @@ interface AdminData {
   locations: LocationOption[];
   searchIndex: SearchItem[];
   adminEmail: string;
+  /** "moderator" adds and edits but cannot delete; the server enforces it too. */
+  role: "admin" | "moderator";
 }
 
 const AdminDataContext = createContext<AdminData | null>(null);
@@ -29,6 +31,7 @@ export function AdminDataProvider({
   locations,
   searchIndex,
   adminEmail,
+  role,
   children,
 }: Omit<AdminData, "peopleById"> & { children: ReactNode }) {
   const value = useMemo(
@@ -37,9 +40,10 @@ export function AdminDataProvider({
       locations,
       searchIndex,
       adminEmail,
+      role,
       peopleById: new Map(network.people.map((p) => [p.id, p])),
     }),
-    [network, locations, searchIndex, adminEmail],
+    [network, locations, searchIndex, adminEmail, role],
   );
   return <AdminDataContext.Provider value={value}>{children}</AdminDataContext.Provider>;
 }
@@ -48,4 +52,9 @@ export function useAdminData(): AdminData {
   const ctx = useContext(AdminDataContext);
   if (!ctx) throw new Error("useAdminData must be used inside the admin layout");
   return ctx;
+}
+
+/** Only admins can delete; moderators don't see delete/reject buttons at all. */
+export function useCanDelete(): boolean {
+  return useAdminData().role === "admin";
 }

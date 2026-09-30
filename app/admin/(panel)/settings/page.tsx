@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireAdmin } from "@/lib/auth/admin";
+import { requireFullAdmin } from "@/lib/auth/admin";
 import { supabaseUrl } from "@/lib/env";
 import { AdminPageHeader, Section } from "@/components/admin/common/layout";
 import { ImportExport } from "@/components/admin/settings/import-export";
@@ -7,7 +7,7 @@ import { ImportExport } from "@/components/admin/settings/import-export";
 export const metadata: Metadata = { title: "Ustawienia" };
 
 export default async function SettingsPage() {
-  const admin = await requireAdmin();
+  const admin = await requireFullAdmin("/admin/settings");
   return (
     <div className="mx-auto grid max-w-3xl gap-6">
       <AdminPageHeader title="Ustawienia" />
@@ -25,7 +25,7 @@ export default async function SettingsPage() {
           </dd>
         </dl>
         <p className="mt-4 text-xs text-muted-foreground">
-          Nowego administratora dodasz w Supabase: utwórz użytkownika w Auth, a potem dodaj jego id do tabeli <code className="font-mono">admin_users</code> (instrukcja w README).
+          Nowego administratora lub moderatora dodasz w Supabase: utwórz użytkownika w Auth, a potem dodaj go do tabeli <code className="font-mono">admin_users</code> z rolą <code className="font-mono">admin</code> albo <code className="font-mono">moderator</code> (instrukcja w README). Moderator dodaje, edytuje i zatwierdza, ale nie usuwa.
         </p>
       </Section>
       <ImportExport />

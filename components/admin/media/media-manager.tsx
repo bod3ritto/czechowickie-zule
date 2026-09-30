@@ -10,6 +10,7 @@ import type { MediaKind } from "@/lib/db/enums";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/admin/providers/confirm";
 import { uploadImage, validateImage, type OwnerType } from "./upload";
+import { useCanDelete } from "@/components/admin/providers/admin-data";
 
 export interface MediaFile {
   id: string;
@@ -46,6 +47,7 @@ export function MediaManager({
 }) {
   const router = useRouter();
   const confirm = useConfirm();
+  const canDelete = useCanDelete();
   const input = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<PendingUpload[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -186,9 +188,11 @@ export function MediaManager({
                     <Star />
                   </Button>
                 )}
-                <Button size="icon-sm" variant="secondary" onClick={() => remove(f)} aria-label="Usuń zdjęcie" title="Usuń">
-                  <Trash2 />
-                </Button>
+                {canDelete && (
+                  <Button size="icon-sm" variant="secondary" onClick={() => remove(f)} aria-label="Usuń zdjęcie" title="Usuń">
+                    <Trash2 />
+                  </Button>
+                )}
               </div>
             </li>
           ))}

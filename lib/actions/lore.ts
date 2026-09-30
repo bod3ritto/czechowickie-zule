@@ -1,7 +1,7 @@
 "use server";
 
 import type { z } from "zod";
-import { adminAction, deleteByIds, revalidatePublic } from "./admin-action";
+import { adminAction, adminOnlyAction, deleteByIds, revalidatePublic } from "./admin-action";
 import { fail, friendlyDbError, ok } from "./result";
 import { STATUS_MESSAGE } from "./status-messages";
 import { idsSchema } from "@/lib/validations/common";
@@ -52,7 +52,7 @@ export async function setLoreStatus(input: z.input<typeof statusChangeSchema>) {
   return statusAction(input);
 }
 
-const deleteAction = adminAction(idsSchema, async ({ ids }, { db }) => {
+const deleteAction = adminOnlyAction(idsSchema, async ({ ids }, { db }) => {
   const failed = await deleteByIds(db, "lore", ids);
   if (failed) return failed;
   revalidatePublic();

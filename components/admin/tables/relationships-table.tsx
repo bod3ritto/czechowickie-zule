@@ -11,6 +11,7 @@ import { ConfidenceBadge, StatusBadge, StrengthMeter } from "@/components/admin/
 import { AdminAvatar } from "@/components/admin/common/person-picker";
 import { useAdminData } from "@/components/admin/providers/admin-data";
 import { useConfirm } from "@/components/admin/providers/confirm";
+import { useCanDelete } from "@/components/admin/providers/admin-data";
 import { useQuickAdd } from "@/components/admin/shell/quick-add";
 import { useServerAction } from "@/components/admin/hooks/use-server-action";
 import { useOptimisticStatus } from "@/components/admin/hooks/use-optimistic-status";
@@ -24,6 +25,7 @@ import { previewHref } from "./people-table";
 export function RelationshipsTable({ relationships }: { relationships: RelationshipRow[] }) {
   const router = useRouter();
   const confirm = useConfirm();
+  const canDelete = useCanDelete();
   const quickAdd = useQuickAdd();
   const { run } = useServerAction();
   const { peopleById } = useAdminData();
@@ -106,9 +108,11 @@ export function RelationshipsTable({ relationships }: { relationships: Relations
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" variant="outline" className="text-destructive" onClick={() => void askDelete(ids).then((ok) => ok && clear())}>
-            <Trash2 /> Usuń
-          </Button>
+          {canDelete && (
+            <Button size="sm" variant="outline" className="text-destructive" onClick={() => void askDelete(ids).then((ok) => ok && clear())}>
+              <Trash2 /> Usuń
+            </Button>
+          )}
         </>
       )}
       rowActions={(r) => (
@@ -131,10 +135,14 @@ export function RelationshipsTable({ relationships }: { relationships: Relations
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <StatusMenuItems status={r.status} onChange={(status) => void setStatus([r.id], status, setRelationshipsStatus)} />
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => void askDelete([r.id])}>
-              <Trash2 /> Usuń
-            </DropdownMenuItem>
+            {canDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => void askDelete([r.id])}>
+                  <Trash2 /> Usuń
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
